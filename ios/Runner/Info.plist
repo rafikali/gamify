@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Learnify uses the microphone so players can speak each English word during game rounds.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Learnify listens for short answers to check whether the player said the right English word.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
