@@ -75,7 +75,7 @@ class GamePage extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Main View (with screen-shake support)
+// Main View
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _GameView extends StatefulWidget {
@@ -85,55 +85,126 @@ class _GameView extends StatefulWidget {
   State<_GameView> createState() => _GameViewState();
 }
 
-class _GameViewState extends State<_GameView>
-    with SingleTickerProviderStateMixin {
+class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
+  // Screen shake
   late final AnimationController _shakeController;
-  late final Animation<double> _shakeAnimation;
+  late final Animation<double> _shakeAnim;
   int _prevLives = 3;
+  String? _prevFeedback;
+
+  // Falling card
+  late final AnimationController _fallController;
+  int _prevIndex = -1;
+  bool _cardCleared = false;
+
+  // Correct burst
+  late final AnimationController _burstController;
+
+  // Crash flash
+  late final AnimationController _crashController;
 
   @override
   void initState() {
     super.initState();
+
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
-    _shakeAnimation = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem(tween: Tween(begin: 0, end: 12), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 12, end: -10), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10, end: 8), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 8, end: -5), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -5, end: 3), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 3, end: 0), weight: 1),
-    ]).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.easeOut),
+    _shakeAnim = TweenSequence<double>(
+      <TweenSequenceItem<double>>[
+        TweenSequenceItem(tween: Tween(begin: 0, end: 14), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: 14, end: -12), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: -12, end: 8), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: 8, end: -4), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: -4, end: 0), weight: 1),
+      ],
+    ).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
+
+    _fallController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    );
+
+    _burstController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _crashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _fallController.dispose();
+    _burstController.dispose();
+    _crashController.dispose();
     super.dispose();
   }
 
-  bool _isCorrectFeedback(String? feedback) =>
-      feedback != null && feedback.startsWith('Boost!');
+  void _onStateChanged(GameState curr) {
+    // New round → reset & start falling
+    if (curr.currentIndex != _prevIndex &&
+        (curr.phase == GamePhase.ready || curr.phase == GamePhase.listening)) {
+      _prevIndex = curr.currentIndex;
+      _cardCleared = false;
+      _burstController.reset();
+      _crashController.reset();
+      // Speed increases per round: 8s → down to 5s
+      final speedFactor = 1.0 + (curr.currentIndex * 0.06);
+      _fallController.duration = Duration(
+        milliseconds: (8000 / speedFactor).round(),
+      );
+      _fallController.forward(from: 0);
+    }
 
-  bool _isWrongFeedback(String? feedback) =>
-      feedback != null &&
-      (feedback.startsWith('Crash!') || feedback.startsWith('Out of time.'));
+    // Life lost → screen shake
+    if (curr.remainingLives < _prevLives) {
+      _shakeController.forward(from: 0);
+    }
+    _prevLives = curr.remainingLives;
+
+    // Feedback: correct
+    if (_prevFeedback != curr.feedback &&
+        curr.feedback != null &&
+        curr.feedback!.startsWith('Boost!')) {
+      _cardCleared = true;
+      _fallController.stop();
+      _burstController.forward(from: 0);
+    }
+
+    // Feedback: wrong or timeout
+    if (_prevFeedback != curr.feedback &&
+        curr.feedback != null &&
+        (curr.feedback!.startsWith('Crash!') ||
+            curr.feedback!.startsWith('Out of time.'))) {
+      _cardCleared = true;
+      _fallController.stop();
+      _crashController.forward(from: 0);
+    }
+
+    _prevFeedback = curr.feedback;
+  }
+
+  bool _isCorrect(String? fb) => fb != null && fb.startsWith('Boost!');
+  bool _isWrong(String? fb) =>
+      fb != null && (fb.startsWith('Crash!') || fb.startsWith('Out of time.'));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocConsumer<GameBloc, GameState>(
         listenWhen: (GameState prev, GameState curr) =>
+            prev.phase != curr.phase ||
+            prev.currentIndex != curr.currentIndex ||
+            prev.feedback != curr.feedback ||
             prev.remainingLives != curr.remainingLives,
         listener: (BuildContext context, GameState state) {
-          if (state.remainingLives < _prevLives) {
-            _shakeController.forward(from: 0);
-          }
-          _prevLives = state.remainingLives;
+          _onStateChanged(state);
         },
         builder: (BuildContext context, GameState state) {
           if (state.phase == GamePhase.loading) {
@@ -142,140 +213,603 @@ class _GameViewState extends State<_GameView>
           if (state.phase == GamePhase.failure) {
             return Center(child: Text(state.errorMessage ?? 'Game failed.'));
           }
-
-          final currentChallenge = state.currentChallenge;
-          final isWrong = _isWrongFeedback(state.feedback);
-          final isCorrect = _isCorrectFeedback(state.feedback);
-
-          return AnimatedBuilder(
-            animation: _shakeAnimation,
-            builder: (BuildContext context, Widget? child) {
-              return Transform.translate(
-                offset: Offset(_shakeAnimation.value, 0),
-                child: child,
-              );
-            },
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    Color(0xFF4CC9F0),
-                    Color(0xFFA28AE5),
-                    Color(0xFF2D2D2D),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: SafeArea(
-                child: Stack(
-                  children: <Widget>[
-                    const Positioned.fill(child: _ParallaxStarField()),
-                    // Nebula glow
-                    Positioned(
-                      top: MediaQuery.of(context).size.height * 0.25,
-                      left: -60,
-                      child: _NebulaOrb(
-                        color: const Color(0xFF4CC9F0),
-                        size: 220,
-                        offsetPhase: 0,
-                      ),
-                    ),
-                    Positioned(
-                      top: MediaQuery.of(context).size.height * 0.55,
-                      right: -40,
-                      child: _NebulaOrb(
-                        color: const Color(0xFFA28AE5),
-                        size: 180,
-                        offsetPhase: 1.5,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                      child: Column(
-                        children: <Widget>[
-                          _AnimatedTopHud(state: state),
-                          const SizedBox(height: 14),
-                          _AnimatedProgressPill(
-                            completed: state.correctAnswers,
-                            total: state.challenges.length,
-                          ),
-                          const SizedBox(height: 12),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (Widget child, Animation<double> a) =>
-                                ScaleTransition(
-                                  scale: a,
-                                  child: FadeTransition(opacity: a, child: child),
-                                ),
-                            child: state.combo > 2
-                                ? _ComboPill(combo: state.combo)
-                                : const SizedBox(height: 48, key: ValueKey('empty')),
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: Stack(
-                              children: <Widget>[
-                                // Sparkle burst on correct
-                                if (isCorrect)
-                                  const Positioned.fill(
-                                    child: _SparkleOverlay(),
-                                  ),
-                                // Word card with entrance animation
-                                if (currentChallenge != null)
-                                  Positioned(
-                                    left: 24,
-                                    top: 40,
-                                    child: _AnimatedWordCard(
-                                      key: ValueKey(currentChallenge.id),
-                                      challenge: currentChallenge,
-                                      feedback: state.feedback,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          _RocketDock(
-                            isDamaged: isWrong,
-                            isBoosted: isCorrect,
-                            isListening: state.phase == GamePhase.listening,
-                          ),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 24,
-                      child: _MicDock(
-                        isListening: state.phase == GamePhase.listening,
-                        enabled: state.canListen,
-                        onPressed: state.canListen
-                            ? () => context.read<GameBloc>().add(
-                                  const ListenPressed(),
-                                )
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
+          return _buildGameScreen(context, state);
         },
+      ),
+    );
+  }
+
+  Widget _buildGameScreen(BuildContext context, GameState state) {
+    final challenge = state.currentChallenge;
+    final isListening = state.phase == GamePhase.listening;
+    final upcomingChallenges = state.challenges
+        .skip(state.currentIndex + 1)
+        .take(3)
+        .toList();
+
+    return AnimatedBuilder(
+      animation: _shakeAnim,
+      builder: (BuildContext context, Widget? child) {
+        return Transform.translate(
+          offset: Offset(_shakeAnim.value, 0),
+          child: child,
+        );
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: <Color>[
+              Color(0xFF4CC9F0),
+              Color(0xFF7B6FD4),
+              Color(0xFF3D2B6B),
+              Color(0xFF1A1030),
+            ],
+            stops: <double>[0.0, 0.35, 0.7, 1.0],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: <Widget>[
+              // Stars + nebula background
+              const Positioned.fill(child: _ParallaxStarField()),
+              Positioned(
+                top: MediaQuery.of(context).size.height * 0.2,
+                left: -60,
+                child: _NebulaOrb(
+                  color: const Color(0xFF4CC9F0),
+                  size: 200,
+                  offsetPhase: 0,
+                ),
+              ),
+              Positioned(
+                top: MediaQuery.of(context).size.height * 0.5,
+                right: -50,
+                child: _NebulaOrb(
+                  color: const Color(0xFFA28AE5),
+                  size: 160,
+                  offsetPhase: 1.5,
+                ),
+              ),
+
+              // Danger zone at bottom
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _DangerZone(fallProgress: _fallController),
+              ),
+
+              // Falling card
+              if (challenge != null && !_cardCleared)
+                Positioned.fill(
+                  child: _FallingWordCard(
+                    challenge: challenge,
+                    fallController: _fallController,
+                    isListening: isListening,
+                  ),
+                ),
+
+              // Correct burst particles
+              if (_burstController.isAnimating || _burstController.value > 0)
+                Positioned.fill(
+                  child: _CorrectBurstOverlay(controller: _burstController),
+                ),
+
+              // Crash flash overlay
+              if (_crashController.isAnimating || _crashController.value > 0)
+                Positioned.fill(
+                  child: _CrashFlashOverlay(controller: _crashController),
+                ),
+
+              // Upcoming word previews (top-right)
+              Positioned(
+                top: 110,
+                right: 20,
+                child: _UpcomingWordsColumn(challenges: upcomingChallenges),
+              ),
+
+              // HUD
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
+                  children: <Widget>[
+                    _AnimatedTopHud(state: state),
+                    const SizedBox(height: 14),
+                    _AnimatedProgressPill(
+                      completed: state.correctAnswers,
+                      total: state.challenges.length,
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (Widget child, Animation<double> a) =>
+                          ScaleTransition(
+                            scale: a,
+                            child: FadeTransition(opacity: a, child: child),
+                          ),
+                      child: state.combo > 2
+                          ? _ComboPill(combo: state.combo)
+                          : const SizedBox(height: 44, key: ValueKey('empty')),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Rocket at bottom center
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 120,
+                child: Center(
+                  child: _RocketDock(
+                    isDamaged: _isWrong(state.feedback),
+                    isBoosted: _isCorrect(state.feedback),
+                    isListening: isListening,
+                  ),
+                ),
+              ),
+
+              // Mic button
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 24,
+                child: _MicDock(
+                  isListening: isListening,
+                  enabled: state.canListen,
+                  onPressed: state.canListen
+                      ? () =>
+                            context.read<GameBloc>().add(const ListenPressed())
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Top HUD with animated score counter & heart pulse
+// Falling word card
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _FallingWordCard extends StatelessWidget {
+  const _FallingWordCard({
+    required this.challenge,
+    required this.fallController,
+    required this.isListening,
+  });
+
+  final WordChallenge challenge;
+  final AnimationController fallController;
+
+  final bool isListening;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: fallController,
+      builder: (BuildContext context, Widget? child) {
+        return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final t = fallController.value;
+            // Card falls from top (y=0.08) to danger zone (y=0.65)
+            final topFraction = 0.08 + t * 0.57;
+            final top = constraints.maxHeight * topFraction;
+
+            // Gentle horizontal sway
+            final sway = math.sin(t * math.pi * 4) * 20 * (1 - t * 0.5);
+            final centerX = (constraints.maxWidth / 2) - 70 + sway;
+
+            // Slight rotation
+            final rotation = math.sin(t * math.pi * 3) * 0.04;
+
+            // Urgency: card glows red as it approaches bottom
+            final urgency = (t - 0.5).clamp(0.0, 0.5) * 2;
+
+            // Scale pulse when near bottom
+            final pulse = 1.0 + math.sin(t * math.pi * 8) * urgency * 0.04;
+
+            return Stack(
+              children: <Widget>[
+                // Trail particles behind card
+                if (t > 0.05)
+                  ..._buildTrailParticles(constraints, top, centerX + 70, t),
+
+                Positioned(
+                  left: centerX,
+                  top: top,
+                  child: Transform.rotate(
+                    angle: rotation,
+                    child: Transform.scale(
+                      scale: pulse,
+                      child: _WordCardBody(
+                        challenge: challenge,
+                        urgency: urgency,
+                        isListening: isListening,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildTrailParticles(
+    BoxConstraints constraints,
+    double cardTop,
+    double cardCenterX,
+    double t,
+  ) {
+    return List<Widget>.generate(6, (int i) {
+      final age = (i + 1) * 0.04;
+      final trailT = (t - age).clamp(0.0, 1.0);
+      final trailY = constraints.maxHeight * (0.08 + trailT * 0.57);
+      final trailSway =
+          math.sin(trailT * math.pi * 4) * 20 * (1 - trailT * 0.5);
+      final trailX = (constraints.maxWidth / 2) + trailSway;
+      final opacity = (0.3 - i * 0.05).clamp(0.0, 0.3);
+
+      return Positioned(
+        left: trailX - 4,
+        top: trailY - 8,
+        child: Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF4CC9F0).withValues(alpha: opacity),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: const Color(0xFF4CC9F0).withValues(alpha: opacity * 0.5),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _WordCardBody extends StatelessWidget {
+  const _WordCardBody({
+    required this.challenge,
+    required this.urgency,
+    required this.isListening,
+  });
+
+  final WordChallenge challenge;
+  final double urgency;
+  final bool isListening;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = urgency > 0.3
+        ? Color.lerp(Colors.transparent, const Color(0xFFEF476F), urgency)!
+        : (isListening ? const Color(0xFF4CC9F0) : Colors.transparent);
+
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor, width: 3),
+        boxShadow: <BoxShadow>[
+          const BoxShadow(
+            color: Color(0x30000000),
+            blurRadius: 28,
+            offset: Offset(0, 16),
+          ),
+          if (urgency > 0.3)
+            BoxShadow(
+              color: const Color(0xFFEF476F).withValues(alpha: urgency * 0.4),
+              blurRadius: 24,
+              spreadRadius: 4,
+            ),
+          if (isListening)
+            BoxShadow(
+              color: const Color(0xFF4CC9F0).withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: 4,
+            ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(challenge.emoji, style: const TextStyle(fontSize: 52)),
+          const SizedBox(height: 10),
+          Text(
+            challenge.answer,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF2D2D2D),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Danger zone (pulsing red gradient at bottom)
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _DangerZone extends StatefulWidget {
+  const _DangerZone({required this.fallProgress});
+
+  final AnimationController fallProgress;
+
+  @override
+  State<_DangerZone> createState() => _DangerZoneState();
+}
+
+class _DangerZoneState extends State<_DangerZone>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge(<Listenable>[
+        _pulseController,
+        widget.fallProgress,
+      ]),
+      builder: (BuildContext context, Widget? child) {
+        // Danger intensifies as card falls
+        final fallT = widget.fallProgress.value;
+        final intensity = (fallT - 0.4).clamp(0.0, 0.6) / 0.6;
+        final pulse = _pulseController.value * 0.3;
+        final opacity = (intensity * 0.4 + pulse * intensity).clamp(0.0, 0.6);
+
+        return Container(
+          height: 180,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: <Color>[
+                Colors.transparent,
+                const Color(0xFFEF476F).withValues(alpha: opacity * 0.3),
+                const Color(0xFFEF476F).withValues(alpha: opacity),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Correct burst — sparkles explode upward
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _CorrectBurstOverlay extends StatefulWidget {
+  const _CorrectBurstOverlay({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  State<_CorrectBurstOverlay> createState() => _CorrectBurstOverlayState();
+}
+
+class _CorrectBurstOverlayState extends State<_CorrectBurstOverlay> {
+  late final List<_BurstParticle> _particles;
+
+  @override
+  void initState() {
+    super.initState();
+    final rng = math.Random();
+    _particles = List.generate(
+      24,
+      (_) => _BurstParticle(
+        angle: rng.nextDouble() * math.pi * 2,
+        speed: 80 + rng.nextDouble() * 200,
+        size: 4 + rng.nextDouble() * 6,
+        color: <Color>[
+          const Color(0xFF80ED99),
+          const Color(0xFF4CC9F0),
+          const Color(0xFFFFD166),
+          Colors.white,
+        ][rng.nextInt(4)],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (BuildContext context, Widget? child) {
+        return CustomPaint(
+          painter: _BurstPainter(
+            particles: _particles,
+            progress: widget.controller.value,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BurstParticle {
+  _BurstParticle({
+    required this.angle,
+    required this.speed,
+    required this.size,
+    required this.color,
+  });
+  final double angle, speed, size;
+  final Color color;
+}
+
+class _BurstPainter extends CustomPainter {
+  _BurstPainter({required this.particles, required this.progress});
+  final List<_BurstParticle> particles;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height * 0.5;
+
+    for (final p in particles) {
+      final t = Curves.easeOut.transform(progress);
+      final opacity = (1 - progress).clamp(0.0, 1.0);
+      final dx = cx + math.cos(p.angle) * p.speed * t;
+      final dy = cy + math.sin(p.angle) * p.speed * t - (t * 60); // drift up
+      final r = p.size * (1 - progress * 0.6);
+
+      canvas.drawCircle(
+        Offset(dx, dy),
+        r,
+        Paint()..color = p.color.withValues(alpha: opacity * 0.9),
+      );
+      // Glow
+      canvas.drawCircle(
+        Offset(dx, dy),
+        r * 2.5,
+        Paint()..color = p.color.withValues(alpha: opacity * 0.15),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BurstPainter old) => old.progress != progress;
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Crash flash — red vignette + debris
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _CrashFlashOverlay extends StatelessWidget {
+  const _CrashFlashOverlay({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (BuildContext context, Widget? child) {
+        final opacity = (1 - controller.value).clamp(0.0, 1.0) * 0.35;
+        return IgnorePointer(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: <Color>[
+                  Colors.transparent,
+                  const Color(0xFFEF476F).withValues(alpha: opacity),
+                ],
+                radius: 1.2,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Upcoming words preview column
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _UpcomingWordsColumn extends StatelessWidget {
+  const _UpcomingWordsColumn({required this.challenges});
+
+  final List<WordChallenge> challenges;
+
+  @override
+  Widget build(BuildContext context) {
+    if (challenges.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: challenges.asMap().entries.map((entry) {
+        final i = entry.key;
+        final c = entry.value;
+        final opacity = 0.6 - (i * 0.15);
+        final scale = 0.8 - (i * 0.08);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.centerRight,
+            child: Opacity(
+              opacity: opacity.clamp(0.15, 0.6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(c.emoji, style: const TextStyle(fontSize: 20)),
+                    const SizedBox(width: 6),
+                    Text(
+                      c.answer,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Top HUD (animated hearts, score counter, shimmer badges)
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _AnimatedTopHud extends StatelessWidget {
   const _AnimatedTopHud({required this.state});
-
   final GameState state;
 
   @override
@@ -283,13 +817,14 @@ class _AnimatedTopHud extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        // Animated hearts row
         Row(
-          children: List<Widget>.generate(3, (int index) {
-            final isActive = index < state.remainingLives;
+          children: List<Widget>.generate(3, (int i) {
             return Padding(
               padding: const EdgeInsets.only(right: 4),
-              child: _AnimatedHeart(isActive: isActive, index: index),
+              child: _AnimatedHeart(
+                isActive: i < state.remainingLives,
+                index: i,
+              ),
             );
           }),
         ),
@@ -298,9 +833,9 @@ class _AnimatedTopHud extends StatelessWidget {
           children: <Widget>[
             Text(
               'Score',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
             const SizedBox(height: 2),
             _AnimatedScoreCounter(score: state.score),
@@ -321,7 +856,6 @@ class _AnimatedTopHud extends StatelessWidget {
 
 class _AnimatedHeart extends StatefulWidget {
   const _AnimatedHeart({required this.isActive, required this.index});
-
   final bool isActive;
   final int index;
 
@@ -331,51 +865,51 @@ class _AnimatedHeart extends StatefulWidget {
 
 class _AnimatedHeartState extends State<_AnimatedHeart>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scaleAnim;
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
   bool _wasActive = true;
 
   @override
   void initState() {
     super.initState();
     _wasActive = widget.isActive;
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _scaleAnim = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.5), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 1.5, end: 0.0), weight: 2),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _scale = TweenSequence<double>(<TweenSequenceItem<double>>[
+      TweenSequenceItem(tween: Tween(begin: 1, end: 1.5), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.5, end: 0), weight: 2),
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
   void didUpdateWidget(_AnimatedHeart old) {
     super.didUpdateWidget(old);
-    if (_wasActive && !widget.isActive) {
-      _controller.forward(from: 0);
-    }
+    if (_wasActive && !widget.isActive) _ctrl.forward(from: 0);
     _wasActive = widget.isActive;
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _scaleAnim,
+      animation: _scale,
       builder: (BuildContext context, Widget? child) {
         return Transform.scale(
-          scale: widget.isActive ? 1.0 : _scaleAnim.value,
+          scale: widget.isActive ? 1 : _scale.value,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 300),
-            opacity: widget.isActive ? 1.0 : (_controller.isAnimating ? 1.0 : 0.3),
+            opacity: widget.isActive ? 1 : (_ctrl.isAnimating ? 1 : 0.25),
             child: Icon(
-              widget.isActive ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              widget.isActive
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
               color: const Color(0xFFEF476F),
               size: 28,
             ),
@@ -388,7 +922,6 @@ class _AnimatedHeartState extends State<_AnimatedHeart>
 
 class _AnimatedScoreCounter extends StatefulWidget {
   const _AnimatedScoreCounter({required this.score});
-
   final int score;
 
   @override
@@ -397,55 +930,55 @@ class _AnimatedScoreCounter extends StatefulWidget {
 
 class _AnimatedScoreCounterState extends State<_AnimatedScoreCounter>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _bounceAnim;
-  int _prevScore = 0;
+  late AnimationController _ctrl;
+  late Animation<double> _bounce;
+  int _prev = 0;
 
   @override
   void initState() {
     super.initState();
-    _prevScore = widget.score;
-    _controller = AnimationController(
+    _prev = widget.score;
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _bounceAnim = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 1),
+    _bounce = TweenSequence<double>(<TweenSequenceItem<double>>[
+      TweenSequenceItem(tween: Tween(begin: 1, end: 1.35), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 1.35, end: 0.9), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1), weight: 1),
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
   void didUpdateWidget(_AnimatedScoreCounter old) {
     super.didUpdateWidget(old);
     if (old.score != widget.score) {
-      _prevScore = old.score;
-      _controller.forward(from: 0);
+      _prev = old.score;
+      _ctrl.forward(from: 0);
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _bounceAnim,
+      animation: _bounce,
       builder: (BuildContext context, Widget? child) {
-        final t = _controller.value;
-        final displayScore = (_prevScore + (widget.score - _prevScore) * t).round();
+        final t = _ctrl.value;
+        final display = (_prev + (widget.score - _prev) * t).round();
         return Transform.scale(
-          scale: _bounceAnim.value,
+          scale: _bounce.value,
           child: Text(
-            '$displayScore',
+            '$display',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         );
       },
@@ -455,7 +988,6 @@ class _AnimatedScoreCounterState extends State<_AnimatedScoreCounter>
 
 class _ShimmerPowerBadge extends StatefulWidget {
   const _ShimmerPowerBadge({required this.icon});
-
   final IconData icon;
 
   @override
@@ -464,12 +996,12 @@ class _ShimmerPowerBadge extends StatefulWidget {
 
 class _ShimmerPowerBadgeState extends State<_ShimmerPowerBadge>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
     )..repeat();
@@ -477,16 +1009,16 @@ class _ShimmerPowerBadgeState extends State<_ShimmerPowerBadge>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
-        final shimmerX = (_controller.value * 3) - 1;
+        final sx = (_ctrl.value * 3) - 1;
         return Container(
           width: 44,
           height: 44,
@@ -495,18 +1027,12 @@ class _ShimmerPowerBadgeState extends State<_ShimmerPowerBadge>
             borderRadius: BorderRadius.circular(16),
           ),
           child: ShaderMask(
-            shaderCallback: (Rect bounds) {
-              return ui.Gradient.linear(
-                Offset(bounds.width * shimmerX, 0),
-                Offset(bounds.width * (shimmerX + 0.5), bounds.height),
-                <Color>[
-                  Colors.white,
-                  Colors.white.withValues(alpha: 0.5),
-                  Colors.white,
-                ],
-                <double>[0.0, 0.5, 1.0],
-              );
-            },
+            shaderCallback: (Rect b) => ui.Gradient.linear(
+              Offset(b.width * sx, 0),
+              Offset(b.width * (sx + 0.5), b.height),
+              <Color>[Colors.white, Colors.white54, Colors.white],
+              <double>[0, 0.5, 1],
+            ),
             child: Icon(widget.icon, color: Colors.white, size: 24),
           ),
         );
@@ -516,21 +1042,17 @@ class _ShimmerPowerBadgeState extends State<_ShimmerPowerBadge>
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Animated progress pill with fill bar
+// Progress pill with animated fill
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _AnimatedProgressPill extends StatelessWidget {
-  const _AnimatedProgressPill({
-    required this.completed,
-    required this.total,
-  });
-
+  const _AnimatedProgressPill({required this.completed, required this.total});
   final int completed;
   final int total;
 
   @override
   Widget build(BuildContext context) {
-    final fraction = total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
+    final frac = total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
     return Center(
       child: Container(
         width: 260,
@@ -545,7 +1067,7 @@ class _AnimatedProgressPill extends StatelessWidget {
             AnimatedFractionallySizedBox(
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
-              widthFactor: fraction == 0 ? 0.001 : fraction,
+              widthFactor: frac == 0 ? 0.001 : frac,
               alignment: Alignment.centerLeft,
               child: Container(
                 decoration: BoxDecoration(
@@ -579,7 +1101,6 @@ class _AnimatedProgressPill extends StatelessWidget {
 
 class _ComboPill extends StatefulWidget {
   const _ComboPill({required this.combo});
-
   final int combo;
 
   @override
@@ -588,12 +1109,12 @@ class _ComboPill extends StatefulWidget {
 
 class _ComboPillState extends State<_ComboPill>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
@@ -601,19 +1122,19 @@ class _ComboPillState extends State<_ComboPill>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
-        final glow = 0.3 + (_controller.value * 0.4);
+        final glow = 0.3 + (_ctrl.value * 0.4);
         return Container(
           key: ValueKey<int>(widget.combo),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: <Color>[
@@ -645,323 +1166,7 @@ class _ComboPillState extends State<_ComboPill>
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Animated word card (spring entrance + shake on wrong)
-// ────────────────────────────────────────────────────────────────────────────────
-
-class _AnimatedWordCard extends StatefulWidget {
-  const _AnimatedWordCard({
-    super.key,
-    required this.challenge,
-    required this.feedback,
-  });
-
-  final WordChallenge challenge;
-  final String? feedback;
-
-  @override
-  State<_AnimatedWordCard> createState() => _AnimatedWordCardState();
-}
-
-class _AnimatedWordCardState extends State<_AnimatedWordCard>
-    with TickerProviderStateMixin {
-  late final AnimationController _entranceController;
-  late final Animation<Offset> _slideAnim;
-  late final Animation<double> _fadeAnim;
-  late final Animation<double> _scaleAnim;
-
-  late final AnimationController _wrongShakeController;
-  late final Animation<double> _wrongShakeAnim;
-
-  late final AnimationController _correctController;
-  late final Animation<double> _correctGlowAnim;
-
-  bool _prevFeedbackWasNull = true;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Entrance: slide from left + fade + scale up
-    _entranceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(-1.2, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entranceController,
-      curve: Curves.elasticOut,
-    ));
-    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-    _scaleAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: Curves.elasticOut,
-      ),
-    );
-    _entranceController.forward();
-
-    // Wrong answer shake
-    _wrongShakeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _wrongShakeAnim = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem(tween: Tween(begin: 0, end: 16), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 16, end: -14), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -14, end: 10), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 10, end: -6), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _wrongShakeController,
-      curve: Curves.easeOut,
-    ));
-
-    // Correct glow
-    _correctController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _correctGlowAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _correctController, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void didUpdateWidget(_AnimatedWordCard old) {
-    super.didUpdateWidget(old);
-    final fb = widget.feedback;
-    if (_prevFeedbackWasNull && fb != null) {
-      if (fb.startsWith('Crash!') || fb.startsWith('Out of time.')) {
-        _wrongShakeController.forward(from: 0);
-      } else if (fb.startsWith('Boost!')) {
-        _correctController.forward(from: 0);
-      }
-    }
-    _prevFeedbackWasNull = fb == null;
-  }
-
-  @override
-  void dispose() {
-    _entranceController.dispose();
-    _wrongShakeController.dispose();
-    _correctController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isCorrect =
-        widget.feedback != null && widget.feedback!.startsWith('Boost!');
-    final isWrong = widget.feedback != null &&
-        (widget.feedback!.startsWith('Crash!') ||
-            widget.feedback!.startsWith('Out of time.'));
-
-    return AnimatedBuilder(
-      animation: Listenable.merge(<Listenable>[
-        _entranceController,
-        _wrongShakeController,
-        _correctController,
-      ]),
-      builder: (BuildContext context, Widget? child) {
-        return FadeTransition(
-          opacity: _fadeAnim,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: Transform.translate(
-                offset: Offset(_wrongShakeAnim.value, 0),
-                child: child,
-              ),
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: 140,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: <BoxShadow>[
-            const BoxShadow(
-              color: Color(0x26000000),
-              blurRadius: 28,
-              offset: Offset(0, 16),
-            ),
-            if (isCorrect)
-              BoxShadow(
-                color: const Color(0xFF80ED99).withValues(
-                  alpha: _correctGlowAnim.value * 0.6,
-                ),
-                blurRadius: 32,
-                spreadRadius: 8,
-              ),
-            if (isWrong)
-              const BoxShadow(
-                color: Color(0x55EF476F),
-                blurRadius: 24,
-                spreadRadius: 4,
-              ),
-          ],
-          border: Border.all(
-            color: isCorrect
-                ? const Color(0xFF80ED99)
-                : isWrong
-                    ? const Color(0xFFEF476F)
-                    : Colors.transparent,
-            width: 4,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(widget.challenge.emoji,
-                style: const TextStyle(fontSize: 56)),
-            const SizedBox(height: 10),
-            Text(
-              widget.challenge.answer,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF2D2D2D),
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Sparkle burst overlay (correct answer celebration)
-// ────────────────────────────────────────────────────────────────────────────────
-
-class _SparkleOverlay extends StatefulWidget {
-  const _SparkleOverlay();
-
-  @override
-  State<_SparkleOverlay> createState() => _SparkleOverlayState();
-}
-
-class _SparkleOverlayState extends State<_SparkleOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final List<_Sparkle> _sparkles;
-  final math.Random _rng = math.Random();
-
-  @override
-  void initState() {
-    super.initState();
-    _sparkles = List.generate(
-      18,
-      (_) => _Sparkle(
-        x: _rng.nextDouble(),
-        y: _rng.nextDouble() * 0.6,
-        size: 3 + _rng.nextDouble() * 5,
-        speed: 0.5 + _rng.nextDouble() * 1.5,
-        phase: _rng.nextDouble() * math.pi * 2,
-      ),
-    );
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
-        return CustomPaint(
-          painter: _SparklePainter(
-            sparkles: _sparkles,
-            progress: _controller.value,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _Sparkle {
-  _Sparkle({
-    required this.x,
-    required this.y,
-    required this.size,
-    required this.speed,
-    required this.phase,
-  });
-
-  final double x, y, size, speed, phase;
-}
-
-class _SparklePainter extends CustomPainter {
-  _SparklePainter({required this.sparkles, required this.progress});
-
-  final List<_Sparkle> sparkles;
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final s in sparkles) {
-      final opacity = (1 - progress).clamp(0.0, 1.0);
-      final dy = s.y * size.height - (progress * s.speed * 80);
-      final dx = s.x * size.width + math.sin(s.phase + progress * 6) * 20;
-
-      final paint = Paint()
-        ..color = Color.lerp(
-          const Color(0xFFFFD166),
-          const Color(0xFF80ED99),
-          s.phase / (math.pi * 2),
-        )!
-            .withValues(alpha: opacity * 0.9);
-
-      // Draw star shape
-      final path = _starPath(dx, dy, s.size * (1 - progress * 0.5), 4);
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  Path _starPath(double cx, double cy, double r, int points) {
-    final path = Path();
-    for (int i = 0; i < points * 2; i++) {
-      final angle = (i * math.pi / points) - math.pi / 2;
-      final radius = i.isEven ? r : r * 0.4;
-      final x = cx + math.cos(angle) * radius;
-      final y = cy + math.sin(angle) * radius;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldRepaint(_SparklePainter old) => old.progress != progress;
-}
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Rocket dock with boost/damage vertical shift & listening glow
+// Rocket dock
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _RocketDock extends StatefulWidget {
@@ -970,10 +1175,7 @@ class _RocketDock extends StatefulWidget {
     required this.isBoosted,
     this.isListening = false,
   });
-
-  final bool isDamaged;
-  final bool isBoosted;
-  final bool isListening;
+  final bool isDamaged, isBoosted, isListening;
 
   @override
   State<_RocketDock> createState() => _RocketDockState();
@@ -981,68 +1183,60 @@ class _RocketDock extends StatefulWidget {
 
 class _RocketDockState extends State<_RocketDock>
     with TickerProviderStateMixin {
-  late final AnimationController _idleController;
-  late final AnimationController _boostController;
+  late final AnimationController _idle;
+  late final AnimationController _boost;
   late final Animation<double> _boostAnim;
 
   @override
   void initState() {
     super.initState();
-    _idleController = AnimationController(
+    _idle = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
-
-    _boostController = AnimationController(
+    _boost = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
     _boostAnim = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem(tween: Tween(begin: 0, end: -40), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -40, end: 0), weight: 2),
-    ]).animate(CurvedAnimation(
-      parent: _boostController,
-      curve: Curves.easeOut,
-    ));
+      TweenSequenceItem(tween: Tween(begin: 0, end: -35), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -35, end: 0), weight: 2),
+    ]).animate(CurvedAnimation(parent: _boost, curve: Curves.easeOut));
   }
 
   @override
   void didUpdateWidget(_RocketDock old) {
     super.didUpdateWidget(old);
-    if (widget.isBoosted && !old.isBoosted) {
-      _boostController.forward(from: 0);
-    }
-    if (widget.isDamaged && !old.isDamaged) {
-      _boostController.forward(from: 0);
-    }
+    if (widget.isBoosted && !old.isBoosted) _boost.forward(from: 0);
+    if (widget.isDamaged && !old.isDamaged) _boost.forward(from: 0);
   }
 
   @override
   void dispose() {
-    _idleController.dispose();
-    _boostController.dispose();
+    _idle.dispose();
+    _boost.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge(<Listenable>[_idleController, _boostController]),
+      animation: Listenable.merge(<Listenable>[_idle, _boost]),
       builder: (BuildContext context, Widget? child) {
-        final idleBounce = math.sin(_idleController.value * math.pi * 2) * 7;
-        final flameScale =
-            0.95 + (math.sin(_idleController.value * math.pi * 8) * 0.1);
-        final rotation = widget.isDamaged ? -0.12 : 0.0;
-        final boostY = widget.isBoosted
+        final bounce = math.sin(_idle.value * math.pi * 2) * 6;
+        final flame = 0.95 + math.sin(_idle.value * math.pi * 8) * 0.1;
+        final rot = widget.isDamaged ? -0.12 : 0.0;
+        final by = widget.isBoosted
             ? _boostAnim.value
-            : (widget.isDamaged ? -_boostAnim.value * 0.4 : 0.0);
-        final glowPulse =
-            0.3 + (math.sin(_idleController.value * math.pi * 4) * 0.15);
+            : widget.isDamaged
+            ? -_boostAnim.value * 0.4
+            : 0.0;
+        final gp = 0.3 + math.sin(_idle.value * math.pi * 4) * 0.15;
 
         return Transform.translate(
-          offset: Offset(0, idleBounce + boostY),
+          offset: Offset(0, bounce + by),
           child: Transform.rotate(
-            angle: rotation,
+            angle: rot,
             child: Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
@@ -1055,8 +1249,7 @@ class _RocketDockState extends State<_RocketDock>
                       shape: BoxShape.circle,
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: const Color(0xFFEF476F)
-                              .withValues(alpha: glowPulse),
+                          color: const Color(0xFFEF476F).withValues(alpha: gp),
                           blurRadius: 48,
                           spreadRadius: 18,
                         ),
@@ -1071,9 +1264,9 @@ class _RocketDockState extends State<_RocketDock>
                       shape: BoxShape.circle,
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: const Color(0xFF80ED99).withValues(
-                            alpha: (1 - _boostController.value) * 0.5,
-                          ),
+                          color: const Color(
+                            0xFF80ED99,
+                          ).withValues(alpha: (1 - _boost.value) * 0.5),
                           blurRadius: 40,
                           spreadRadius: 12,
                         ),
@@ -1084,15 +1277,13 @@ class _RocketDockState extends State<_RocketDock>
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Transform.scale(
-                      scaleY: flameScale * (widget.isBoosted ? 1.5 : 1.0),
+                      scaleY: flame * (widget.isBoosted ? 1.5 : 1),
                       child: const _RocketFlame(),
                     ),
                     const SizedBox(height: 2),
                     CustomPaint(
-                      size: const Size(86, 132),
+                      size: const Size(64, 100),
                       painter: _RocketPainter(
-                        bodyTop: const Color(0xFF4CC9F0),
-                        bodyBottom: const Color(0xFFA28AE5),
                         finColor: widget.isBoosted
                             ? const Color(0xFFFFD166)
                             : const Color(0xFFEF476F),
@@ -1115,14 +1306,14 @@ class _RocketFlame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 70,
-      height: 70,
+      width: 50,
+      height: 50,
       child: Stack(
         alignment: Alignment.topCenter,
         children: <Widget>[
           Container(
-            width: 34,
-            height: 52,
+            width: 26,
+            height: 40,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: <Color>[
@@ -1137,8 +1328,8 @@ class _RocketFlame extends StatelessWidget {
             ),
           ),
           Container(
-            width: 22,
-            height: 42,
+            width: 16,
+            height: 30,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: <Color>[
@@ -1153,8 +1344,8 @@ class _RocketFlame extends StatelessWidget {
             ),
           ),
           Container(
-            width: 12,
-            height: 28,
+            width: 8,
+            height: 20,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: <Color>[
@@ -1175,98 +1366,90 @@ class _RocketFlame extends StatelessWidget {
 }
 
 class _RocketPainter extends CustomPainter {
-  const _RocketPainter({
-    required this.bodyTop,
-    required this.bodyBottom,
-    required this.finColor,
-  });
-
-  final Color bodyTop;
-  final Color bodyBottom;
+  const _RocketPainter({required this.finColor});
   final Color finColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
+    final cx = size.width / 2;
+    final s = size.width / 86; // scale factor from original 86-wide
 
-    final nosePaint = Paint()..color = finColor;
-    final nosePath = Path()
-      ..moveTo(centerX, 0)
-      ..lineTo(centerX - 20, 30)
-      ..lineTo(centerX + 20, 30)
-      ..close();
-    canvas.drawPath(nosePath, nosePaint);
-
-    final bodyRect = RRect.fromLTRBR(
-      centerX - 20, 28, centerX + 20, 82, const Radius.circular(18),
+    canvas.drawPath(
+      Path()
+        ..moveTo(cx, 0)
+        ..lineTo(cx - 15 * s, 22 * s)
+        ..lineTo(cx + 15 * s, 22 * s)
+        ..close(),
+      Paint()..color = finColor,
     );
-    final bodyPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: <Color>[Color(0xFF4CC9F0), Color(0xFFA28AE5)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(bodyRect.outerRect);
-    canvas.drawRRect(bodyRect, bodyPaint);
 
-    final shadowPaint = Paint()
-      ..color = const Color(0x22000000)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawRRect(bodyRect.shift(const Offset(0, 4)), shadowPaint);
-    canvas.drawRRect(bodyRect, bodyPaint);
+    final body = RRect.fromLTRBR(
+      cx - 15 * s,
+      20 * s,
+      cx + 15 * s,
+      62 * s,
+      Radius.circular(14 * s),
+    );
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: <Color>[Color(0xFF4CC9F0), Color(0xFFA28AE5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(body.outerRect),
+    );
 
-    final windowPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(centerX, 46), 10, windowPaint);
+    canvas.drawCircle(Offset(cx, 35 * s), 7 * s, Paint()..color = Colors.white);
     canvas.drawCircle(
-      Offset(centerX, 46),
-      10,
+      Offset(cx, 35 * s),
+      7 * s,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = 1.5
         ..color = const Color(0x332D2D2D),
     );
     canvas.drawCircle(
-      Offset(centerX, 66),
-      5,
-      Paint()..color = Colors.white.withValues(alpha: 0.4),
+      Offset(cx, 50 * s),
+      3.5 * s,
+      Paint()..color = Colors.white38,
     );
 
-    final leftFin = Path()
-      ..moveTo(centerX - 20, 72)
-      ..lineTo(centerX - 34, 90)
-      ..lineTo(centerX - 20, 90)
-      ..close();
-    final rightFin = Path()
-      ..moveTo(centerX + 20, 72)
-      ..lineTo(centerX + 34, 90)
-      ..lineTo(centerX + 20, 90)
-      ..close();
-    final finPaint = Paint()..color = finColor;
-    canvas.drawPath(leftFin, finPaint);
-    canvas.drawPath(rightFin, finPaint);
+    for (final dir in <double>[-1, 1]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(cx + 15 * s * dir, 54 * s)
+          ..lineTo(cx + 25 * s * dir, 68 * s)
+          ..lineTo(cx + 15 * s * dir, 68 * s)
+          ..close(),
+        Paint()..color = finColor,
+      );
+    }
 
-    final nozzleRect = RRect.fromLTRBR(
-      centerX - 18, 82, centerX + 18, 92, const Radius.circular(3),
+    final nozzle = RRect.fromLTRBR(
+      cx - 13 * s,
+      62 * s,
+      cx + 13 * s,
+      70 * s,
+      Radius.circular(2 * s),
     );
     canvas.drawRRect(
-      nozzleRect,
+      nozzle,
       Paint()
         ..shader = const LinearGradient(
           colors: <Color>[Color(0xFF6B6B6B), Color(0xFF2D2D2D)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-        ).createShader(nozzleRect.outerRect),
+        ).createShader(nozzle.outerRect),
     );
   }
 
   @override
-  bool shouldRepaint(covariant _RocketPainter oldDelegate) =>
-      oldDelegate.finColor != finColor ||
-      oldDelegate.bodyTop != bodyTop ||
-      oldDelegate.bodyBottom != bodyBottom;
+  bool shouldRepaint(_RocketPainter old) => old.finColor != finColor;
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Mic dock with pulse ripple rings
+// Mic dock with pulse rings
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _MicDock extends StatelessWidget {
@@ -1275,9 +1458,7 @@ class _MicDock extends StatelessWidget {
     required this.enabled,
     required this.onPressed,
   });
-
-  final bool isListening;
-  final bool enabled;
+  final bool isListening, enabled;
   final VoidCallback? onPressed;
 
   @override
@@ -1299,8 +1480,8 @@ class _MicDock extends StatelessWidget {
                   color: isListening
                       ? const Color(0xFFEF476F)
                       : enabled
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.65),
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.65),
                   shape: BoxShape.circle,
                   boxShadow: <BoxShadow>[
                     BoxShadow(
@@ -1325,10 +1506,10 @@ class _MicDock extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           child: isListening
               ? const Padding(
-                  padding: EdgeInsets.only(top: 14),
+                  padding: EdgeInsets.only(top: 12),
                   child: _ListeningBars(),
                 )
-              : const SizedBox(height: 30),
+              : const SizedBox(height: 28),
         ),
       ],
     );
@@ -1337,19 +1518,18 @@ class _MicDock extends StatelessWidget {
 
 class _PulseRings extends StatefulWidget {
   const _PulseRings();
-
   @override
   State<_PulseRings> createState() => _PulseRingsState();
 }
 
 class _PulseRingsState extends State<_PulseRings>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
@@ -1357,14 +1537,14 @@ class _PulseRingsState extends State<_PulseRings>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
         return SizedBox(
           width: 160,
@@ -1372,7 +1552,7 @@ class _PulseRingsState extends State<_PulseRings>
           child: Stack(
             alignment: Alignment.center,
             children: List<Widget>.generate(3, (int i) {
-              final phase = ((_controller.value + i * 0.33) % 1.0);
+              final phase = ((_ctrl.value + i * 0.33) % 1.0);
               final scale = 1.0 + phase * 0.8;
               final opacity = (1 - phase).clamp(0.0, 0.4);
               return Transform.scale(
@@ -1399,19 +1579,18 @@ class _PulseRingsState extends State<_PulseRings>
 
 class _ListeningBars extends StatefulWidget {
   const _ListeningBars();
-
   @override
   State<_ListeningBars> createState() => _ListeningBarsState();
 }
 
 class _ListeningBarsState extends State<_ListeningBars>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
     )..repeat();
@@ -1419,29 +1598,28 @@ class _ListeningBarsState extends State<_ListeningBars>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: List<Widget>.generate(5, (int index) {
-                final height = 18 +
-                    ((math.sin((_controller.value * math.pi * 2) +
-                                    (index * 0.5)) +
-                                1) *
-                            10);
+              children: List<Widget>.generate(5, (int i) {
+                final h =
+                    18 +
+                    ((math.sin((_ctrl.value * math.pi * 2) + i * 0.5) + 1) *
+                        10);
                 return Container(
                   width: 4,
-                  height: height,
+                  height: h,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -1466,57 +1644,54 @@ class _ListeningBarsState extends State<_ListeningBars>
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Multi-layer parallax starfield with shooting stars
+// Parallax starfield with shooting stars
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _ParallaxStarField extends StatefulWidget {
   const _ParallaxStarField();
-
   @override
   State<_ParallaxStarField> createState() => _ParallaxStarFieldState();
 }
 
 class _ParallaxStarFieldState extends State<_ParallaxStarField>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
   final math.Random _rng = math.Random(42);
-  late final List<_StarData> _starsNear;
-  late final List<_StarData> _starsFar;
-  late final List<_ShootingStar> _shootingStars;
+  late final List<_Star> _far, _near;
+  late final List<_Shooting> _shooting;
 
   @override
   void initState() {
     super.initState();
-    _starsNear = List.generate(
-      20,
-      (_) => _StarData(
-        x: _rng.nextDouble(),
-        y: _rng.nextDouble(),
-        size: 2.5 + _rng.nextDouble() * 2,
-        phase: _rng.nextDouble() * math.pi * 2,
-      ),
-    );
-    _starsFar = List.generate(
+    _far = List.generate(
       30,
-      (_) => _StarData(
-        x: _rng.nextDouble(),
-        y: _rng.nextDouble(),
-        size: 1.0 + _rng.nextDouble() * 1.5,
-        phase: _rng.nextDouble() * math.pi * 2,
+      (_) => _Star(
+        _rng.nextDouble(),
+        _rng.nextDouble(),
+        1 + _rng.nextDouble() * 1.5,
+        _rng.nextDouble() * math.pi * 2,
       ),
     );
-    _shootingStars = List.generate(
+    _near = List.generate(
+      20,
+      (_) => _Star(
+        _rng.nextDouble(),
+        _rng.nextDouble(),
+        2.5 + _rng.nextDouble() * 2,
+        _rng.nextDouble() * math.pi * 2,
+      ),
+    );
+    _shooting = List.generate(
       3,
-      (i) => _ShootingStar(
-        startX: 0.2 + _rng.nextDouble() * 0.6,
-        startY: 0.05 + _rng.nextDouble() * 0.3,
-        angle: 0.5 + _rng.nextDouble() * 0.5,
-        triggerAt: i * 0.33,
-        speed: 0.08 + _rng.nextDouble() * 0.04,
+      (i) => _Shooting(
+        0.2 + _rng.nextDouble() * 0.6,
+        0.05 + _rng.nextDouble() * 0.25,
+        0.5 + _rng.nextDouble() * 0.5,
+        i * 0.33,
+        0.08 + _rng.nextDouble() * 0.04,
       ),
     );
-
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat();
@@ -1524,22 +1699,17 @@ class _ParallaxStarFieldState extends State<_ParallaxStarField>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
         return CustomPaint(
-          painter: _ParallaxStarPainter(
-            starsNear: _starsNear,
-            starsFar: _starsFar,
-            shootingStars: _shootingStars,
-            t: _controller.value,
-          ),
+          painter: _StarPainter(_far, _near, _shooting, _ctrl.value),
           size: Size.infinite,
         );
       },
@@ -1547,103 +1717,71 @@ class _ParallaxStarFieldState extends State<_ParallaxStarField>
   }
 }
 
-class _StarData {
-  _StarData({
-    required this.x,
-    required this.y,
-    required this.size,
-    required this.phase,
-  });
+class _Star {
+  _Star(this.x, this.y, this.size, this.phase);
   final double x, y, size, phase;
 }
 
-class _ShootingStar {
-  _ShootingStar({
-    required this.startX,
-    required this.startY,
-    required this.angle,
-    required this.triggerAt,
-    required this.speed,
-  });
-  final double startX, startY, angle, triggerAt, speed;
+class _Shooting {
+  _Shooting(this.sx, this.sy, this.angle, this.trigger, this.speed);
+  final double sx, sy, angle, trigger, speed;
 }
 
-class _ParallaxStarPainter extends CustomPainter {
-  _ParallaxStarPainter({
-    required this.starsNear,
-    required this.starsFar,
-    required this.shootingStars,
-    required this.t,
-  });
-
-  final List<_StarData> starsNear;
-  final List<_StarData> starsFar;
-  final List<_ShootingStar> shootingStars;
+class _StarPainter extends CustomPainter {
+  _StarPainter(this.far, this.near, this.shooting, this.t);
+  final List<_Star> far, near;
+  final List<_Shooting> shooting;
   final double t;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Far stars (slower drift)
-    for (final s in starsFar) {
-      final pulse = (math.sin(t * math.pi * 2 + s.phase) + 1) / 2;
-      final opacity = 0.15 + pulse * 0.35;
+    for (final s in far) {
+      final p = (math.sin(t * math.pi * 2 + s.phase) + 1) / 2;
       final dy = (s.y + t * 0.02) % 1.0;
       canvas.drawCircle(
         Offset(s.x * size.width, dy * size.height),
-        s.size * (0.8 + pulse * 0.3),
-        Paint()..color = Colors.white.withValues(alpha: opacity),
+        s.size * (0.8 + p * 0.3),
+        Paint()..color = Colors.white.withValues(alpha: 0.15 + p * 0.35),
       );
     }
-
-    // Near stars (faster drift, bigger)
-    for (final s in starsNear) {
-      final pulse = (math.sin(t * math.pi * 2 * 1.4 + s.phase) + 1) / 2;
-      final opacity = 0.3 + pulse * 0.5;
+    for (final s in near) {
+      final p = (math.sin(t * math.pi * 2 * 1.4 + s.phase) + 1) / 2;
       final dy = (s.y + t * 0.05) % 1.0;
       canvas.drawCircle(
         Offset(s.x * size.width, dy * size.height),
-        s.size * (0.9 + pulse * 0.4),
-        Paint()..color = Colors.white.withValues(alpha: opacity),
+        s.size * (0.9 + p * 0.4),
+        Paint()..color = Colors.white.withValues(alpha: 0.3 + p * 0.5),
       );
     }
-
-    // Shooting stars
-    for (final ss in shootingStars) {
-      final localT = ((t - ss.triggerAt) % 1.0);
-      if (localT > ss.speed * 3) continue; // only visible briefly
-      final progress = localT / (ss.speed * 3);
-      final opacity = (1 - progress).clamp(0.0, 1.0) * 0.8;
-      final length = 60.0 * (1 - progress);
-
-      final x = ss.startX * size.width + progress * ss.angle * 200;
-      final y = ss.startY * size.height + progress * 120;
-
-      final paint = Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(x, y),
-          Offset(x - length * ss.angle, y - length * 0.5),
-          <Color>[
-            Colors.white.withValues(alpha: opacity),
-            Colors.transparent,
-          ],
-        )
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round;
-
+    for (final ss in shooting) {
+      final lt = ((t - ss.trigger) % 1.0);
+      if (lt > ss.speed * 3) continue;
+      final prog = lt / (ss.speed * 3);
+      final op = (1 - prog).clamp(0.0, 1.0) * 0.8;
+      final len = 60.0 * (1 - prog);
+      final x = ss.sx * size.width + prog * ss.angle * 200;
+      final y = ss.sy * size.height + prog * 120;
       canvas.drawLine(
         Offset(x, y),
-        Offset(x - length * ss.angle, y - length * 0.5),
-        paint,
+        Offset(x - len * ss.angle, y - len * 0.5),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(x, y),
+            Offset(x - len * ss.angle, y - len * 0.5),
+            <Color>[Colors.white.withValues(alpha: op), Colors.transparent],
+          )
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_ParallaxStarPainter old) => old.t != t;
+  bool shouldRepaint(_StarPainter old) => old.t != t;
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Nebula orbs (floating ambient glow)
+// Nebula orb
 // ────────────────────────────────────────────────────────────────────────────────
 
 class _NebulaOrb extends StatefulWidget {
@@ -1652,10 +1790,8 @@ class _NebulaOrb extends StatefulWidget {
     required this.size,
     required this.offsetPhase,
   });
-
   final Color color;
-  final double size;
-  final double offsetPhase;
+  final double size, offsetPhase;
 
   @override
   State<_NebulaOrb> createState() => _NebulaOrbState();
@@ -1663,12 +1799,12 @@ class _NebulaOrb extends StatefulWidget {
 
 class _NebulaOrbState extends State<_NebulaOrb>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
     )..repeat(reverse: true);
@@ -1676,21 +1812,18 @@ class _NebulaOrbState extends State<_NebulaOrb>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _ctrl,
       builder: (BuildContext context, Widget? child) {
-        final drift = math.sin(
-              _controller.value * math.pi * 2 + widget.offsetPhase,
-            ) *
-            20;
+        final d = math.sin(_ctrl.value * math.pi * 2 + widget.offsetPhase) * 20;
         return Transform.translate(
-          offset: Offset(drift, drift * 0.5),
+          offset: Offset(d, d * 0.5),
           child: Container(
             width: widget.size,
             height: widget.size,

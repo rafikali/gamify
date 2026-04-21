@@ -10,10 +10,7 @@ class SessionSignUpResult {
   const SessionSignUpResult.signedIn(SessionUser user) : this._(user: user);
 
   const SessionSignUpResult.emailConfirmationRequired(String message)
-    : this._(
-        requiresEmailConfirmation: true,
-        message: message,
-      );
+    : this._(requiresEmailConfirmation: true, message: message);
 
   final SessionUser? user;
   final bool requiresEmailConfirmation;
@@ -29,6 +26,8 @@ abstract class SessionRepository {
     required String email,
     required String password,
   });
+
+  Future<SessionUser> signInWithGoogle();
 
   Future<SessionSignUpResult> signUpWithEmail({
     required String email,

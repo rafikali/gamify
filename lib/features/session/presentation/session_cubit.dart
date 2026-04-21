@@ -173,6 +173,44 @@ class SessionCubit extends Cubit<SessionState> {
     }
   }
 
+  Future<void> signInWithGoogle() async {
+    emit(
+      state.copyWith(
+        status: SessionStatus.authenticating,
+        clearError: true,
+        clearNotice: true,
+      ),
+    );
+
+    try {
+      final user = await _sessionRepository.signInWithGoogle();
+      emit(
+        state.copyWith(
+          status: SessionStatus.authenticated,
+          user: user,
+          clearError: true,
+          clearNotice: true,
+        ),
+      );
+    } on SessionFailure catch (failure) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.failure,
+          errorMessage: failure.message,
+        ),
+      );
+      emit(state.copyWith(status: SessionStatus.signedOut));
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.failure,
+          errorMessage: 'Google sign-in failed: $error',
+        ),
+      );
+      emit(state.copyWith(status: SessionStatus.signedOut));
+    }
+  }
+
   Future<void> signUpWithEmail({
     required String email,
     required String password,

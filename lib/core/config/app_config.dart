@@ -1,16 +1,31 @@
+import 'package:firebase_core/firebase_core.dart';
+
+import '../../firebase_options.dart';
+
 class AppConfig {
-  const AppConfig({required this.supabaseUrl, required this.supabaseAnonKey});
+  const AppConfig({
+    required this.firebaseOptions,
+    required this.googleWebClientId,
+    required this.googleIosClientId,
+  });
 
-  final String supabaseUrl;
-  final String supabaseAnonKey;
+  final FirebaseOptions? firebaseOptions;
+  final String googleWebClientId;
+  final String googleIosClientId;
 
-  bool get isSupabaseConfigured =>
-      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+  bool get isFirebaseConfigured => firebaseOptions != null;
+
+  bool get supportsFirebasePlatform =>
+      DefaultFirebaseOptions.supportsCurrentPlatform;
+
+  String get firebasePlatformLabel =>
+      DefaultFirebaseOptions.currentPlatformLabel;
 
   static AppConfig fromEnvironment() {
-    return const AppConfig(
-      supabaseUrl: String.fromEnvironment('SUPABASE_URL'),
-      supabaseAnonKey: String.fromEnvironment('SUPABASE_ANON_KEY'),
+    return AppConfig(
+      firebaseOptions: DefaultFirebaseOptions.currentPlatform,
+      googleWebClientId: const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID'),
+      googleIosClientId: const String.fromEnvironment('GOOGLE_IOS_CLIENT_ID'),
     );
   }
 }

@@ -1,4 +1,6 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../features/learning/data/learning_repository_impl.dart';
 import '../../features/learning/domain/learning_repository.dart';
@@ -13,12 +15,16 @@ class AppBootstrapServices {
     required this.sessionRepository,
     required this.learningRepository,
     required this.speechRecognitionService,
-    this.supabaseClient,
+    this.firebaseApp,
+    this.firebaseAuth,
+    this.firestore,
     this.bootstrapWarning,
   });
 
   final AppConfig config;
-  final SupabaseClient? supabaseClient;
+  final FirebaseApp? firebaseApp;
+  final FirebaseAuth? firebaseAuth;
+  final FirebaseFirestore? firestore;
   final SessionRepository sessionRepository;
   final LearningRepository learningRepository;
   final SpeechRecognitionService speechRecognitionService;
@@ -27,35 +33,44 @@ class AppBootstrapServices {
 
 class AppBootstrap {
   static Future<AppBootstrapServices> initialize(AppConfig config) async {
-    SupabaseClient? supabaseClient;
+    FirebaseApp? firebaseApp;
+    FirebaseAuth? firebaseAuth;
+    FirebaseFirestore? firestore;
     String? bootstrapWarning;
 
-    if (config.isSupabaseConfigured) {
+    if (!config.supportsFirebasePlatform) {
+      bootstrapWarning =
+          'Firebase is not enabled for ${config.firebasePlatformLabel} in this app build. Running in mock mode for now.';
+    } else if (config.isFirebaseConfigured) {
       try {
-        await Supabase.initialize(
-          url: config.supabaseUrl,
-          anonKey: config.supabaseAnonKey,
+        final initializedApp = await Firebase.initializeApp(
+          options: config.firebaseOptions!,
         );
-        supabaseClient = Supabase.instance.client;
+        firebaseApp = initializedApp;
+        firebaseAuth = FirebaseAuth.instanceFor(app: initializedApp);
+        firestore = FirebaseFirestore.instanceFor(app: initializedApp);
       } catch (error) {
         bootstrapWarning =
-            'Supabase setup failed. Running in mock mode for now.\n$error';
+            'Firebase setup failed. Running in mock mode for now.\n$error';
       }
     } else {
       bootstrapWarning =
-          'Add SUPABASE_URL and SUPABASE_ANON_KEY via --dart-define to enable the live backend.';
+          'Add the FIREBASE_* dart-defines for ${config.firebasePlatformLabel} to enable the live backend.';
     }
 
     final sessionRepository = SessionRepositoryImpl(
-      supabaseClient: supabaseClient,
+      firebaseAuth: firebaseAuth,
+      firestore: firestore,
+      googleWebClientId: config.googleWebClientId,
+      googleIosClientId: config.googleIosClientId,
     );
-    final learningRepository = LearningRepositoryImpl(
-      supabaseClient: supabaseClient,
-    );
+    final learningRepository = LearningRepositoryImpl(firestore: firestore);
 
     return AppBootstrapServices(
       config: config,
-      supabaseClient: supabaseClient,
+      firebaseApp: firebaseApp,
+      firebaseAuth: firebaseAuth,
+      firestore: firestore,
       sessionRepository: sessionRepository,
       learningRepository: learningRepository,
       speechRecognitionService: SpeechRecognitionServiceImpl(),

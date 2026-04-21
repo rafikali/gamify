@@ -27,7 +27,7 @@ class _LearnifyAppState extends State<LearnifyApp> {
     super.initState();
     _sessionCubit = SessionCubit(
       sessionRepository: widget.services.sessionRepository,
-      backendConfigured: widget.services.config.isSupabaseConfigured,
+      backendConfigured: widget.services.config.isFirebaseConfigured,
       bootstrapWarning: widget.services.bootstrapWarning,
     )..restoreSession();
     _router = createLearnifyRouter(_sessionCubit, widget.services);

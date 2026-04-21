@@ -1,4 +1,4 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../session/domain/session_user.dart';
 import '../domain/learning_models.dart';
@@ -6,13 +6,13 @@ import '../domain/learning_repository.dart';
 import 'mock_learning_seed.dart';
 
 class LearningRepositoryImpl implements LearningRepository {
-  const LearningRepositoryImpl({required this.supabaseClient});
+  const LearningRepositoryImpl({required this.firestore});
 
-  final SupabaseClient? supabaseClient;
+  final FirebaseFirestore? firestore;
 
   @override
   Future<DashboardData> fetchDashboard(SessionUser user) async {
-    if (supabaseClient == null || user.isGuest) {
+    if (firestore == null || user.isGuest) {
       return const DashboardData(
         categories: MockLearningSeed.categories,
         achievements: MockLearningSeed.achievements,
@@ -20,46 +20,48 @@ class LearningRepositoryImpl implements LearningRepository {
     }
 
     try {
-      final categoryRows = await supabaseClient!
-          .from('categories')
-          .select(
-            'id, title, description, icon_name, accent_hex, emoji, total_words, mastery_percent, image_url, sort_order',
-          )
-          .order('sort_order');
+      final categoryRows = await firestore!
+          .collection('categories')
+          .orderBy('sort_order')
+          .get();
 
-      final categories = (categoryRows as List<dynamic>)
+      final categories = categoryRows.docs
           .map(
-            (dynamic row) => LearningCategory(
-              id: row['id'] as String,
-              title: row['title'] as String? ?? 'Lesson',
-              subtitle: row['description'] as String? ?? 'Voice challenge',
-              iconName: row['icon_name'] as String? ?? 'school',
-              accentHex: row['accent_hex'] as String? ?? '#57C84D',
-              emoji: row['emoji'] as String? ?? '🚀',
-              totalWords: (row['total_words'] as num?)?.toInt() ?? 3,
-              masteryPercent:
-                  (row['mastery_percent'] as num?)?.toDouble() ?? 0.0,
-              imageUrl: row['image_url'] as String?,
-            ),
+            (QueryDocumentSnapshot<Map<String, dynamic>> row) =>
+                LearningCategory(
+                  id: row.id,
+                  title: row.data()['title'] as String? ?? 'Lesson',
+                  subtitle:
+                      row.data()['description'] as String? ?? 'Voice challenge',
+                  iconName: row.data()['icon_name'] as String? ?? 'school',
+                  accentHex: row.data()['accent_hex'] as String? ?? '#57C84D',
+                  emoji: row.data()['emoji'] as String? ?? '🚀',
+                  totalWords: _intValue(row.data()['total_words'], fallback: 3),
+                  masteryPercent:
+                      (row.data()['mastery_percent'] as num?)?.toDouble() ??
+                      0.0,
+                  imageUrl: row.data()['image_url'] as String?,
+                ),
           )
           .toList();
 
       List<Achievement> achievements = const <Achievement>[];
       try {
-        final achievementRows = await supabaseClient!
-            .from('achievements')
-            .select('id, title, description, progress, unlocked, emoji')
-            .eq('user_id', user.id);
+        final achievementRows = await firestore!
+            .collection('profiles')
+            .doc(user.id)
+            .collection('achievements')
+            .get();
 
-        achievements = (achievementRows as List<dynamic>)
+        achievements = achievementRows.docs
             .map(
-              (dynamic row) => Achievement(
-                id: row['id'] as String,
-                title: row['title'] as String? ?? 'Achievement',
-                description: row['description'] as String? ?? '',
-                progress: (row['progress'] as num?)?.toDouble() ?? 0,
-                unlocked: row['unlocked'] as bool? ?? false,
-                emoji: row['emoji'] as String? ?? '🏁',
+              (QueryDocumentSnapshot<Map<String, dynamic>> row) => Achievement(
+                id: row.id,
+                title: row.data()['title'] as String? ?? 'Achievement',
+                description: row.data()['description'] as String? ?? '',
+                progress: (row.data()['progress'] as num?)?.toDouble() ?? 0,
+                unlocked: row.data()['unlocked'] as bool? ?? false,
+                emoji: row.data()['emoji'] as String? ?? '🏁',
               ),
             )
             .toList();
@@ -96,7 +98,7 @@ class LearningRepositoryImpl implements LearningRepository {
         MockLearningSeed.wordsByCategory[fallbackCategory.id] ??
         const <WordChallenge>[];
 
-    if (supabaseClient == null || user.isGuest) {
+    if (firestore == null || user.isGuest) {
       return GameSessionBundle(
         category: fallbackCategory,
         challenges: fallbackWords,
@@ -104,25 +106,24 @@ class LearningRepositoryImpl implements LearningRepository {
     }
 
     try {
-      final wordRows = await supabaseClient!
-          .from('words')
-          .select(
-            'id, category_id, answer, emoji, fun_fact, pronunciation_hint, image_url',
-          )
-          .eq('category_id', categoryId)
-          .limit(12);
+      final wordRows = await firestore!
+          .collection('words')
+          .where('category_id', isEqualTo: categoryId)
+          .limit(12)
+          .get();
 
-      final words = (wordRows as List<dynamic>)
+      final words = wordRows.docs
           .map(
-            (dynamic row) => WordChallenge(
-              id: row['id'] as String,
-              categoryId: row['category_id'] as String? ?? categoryId,
-              answer: row['answer'] as String? ?? 'word',
-              emoji: row['emoji'] as String? ?? '✨',
-              funFact: row['fun_fact'] as String? ?? 'Keep going.',
+            (QueryDocumentSnapshot<Map<String, dynamic>> row) => WordChallenge(
+              id: row.id,
+              categoryId: row.data()['category_id'] as String? ?? categoryId,
+              answer: row.data()['answer'] as String? ?? 'word',
+              emoji: row.data()['emoji'] as String? ?? '✨',
+              funFact: row.data()['fun_fact'] as String? ?? 'Keep going.',
               pronunciationHint:
-                  row['pronunciation_hint'] as String? ?? 'Say it clearly',
-              imageUrl: row['image_url'] as String?,
+                  row.data()['pronunciation_hint'] as String? ??
+                  'Say it clearly',
+              imageUrl: row.data()['image_url'] as String?,
             ),
           )
           .toList();
@@ -150,31 +151,38 @@ class LearningRepositoryImpl implements LearningRepository {
       streakDays: summary.clearedAll ? user.streakDays + 1 : user.streakDays,
     );
 
-    if (supabaseClient == null || user.isGuest) {
+    if (firestore == null || user.isGuest) {
       return updatedUser;
     }
 
     try {
-      await supabaseClient!.from('profiles').upsert(<String, dynamic>{
+      final profileReference = firestore!.collection('profiles').doc(user.id);
+
+      await profileReference.set(<String, dynamic>{
         'id': user.id,
         'display_name': user.displayName,
         'streak_days': updatedUser.streakDays,
         'total_xp': updatedUser.totalXp,
-      });
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      await supabaseClient!.from('game_sessions').insert(<String, dynamic>{
-        'user_id': user.id,
+      await profileReference.collection('game_sessions').add(<String, dynamic>{
         'category_id': summary.categoryId,
         'score': summary.score,
         'correct_answers': summary.correctAnswers,
         'wrong_answers': summary.wrongAnswers,
         'cleared_all': summary.clearedAll,
         'elapsed_seconds': summary.elapsedSeconds,
+        'created_at': FieldValue.serverTimestamp(),
       });
     } catch (_) {
       return updatedUser;
     }
 
     return updatedUser;
+  }
+
+  int _intValue(Object? value, {required int fallback}) {
+    return (value as num?)?.toInt() ?? fallback;
   }
 }

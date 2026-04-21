@@ -38,7 +38,10 @@ dependencies:
   go_router: ^16.2.1
   lottie: ^3.3.2
   speech_to_text: ^7.3.0
-  supabase_flutter: ^2.8.4
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  cloud_firestore: ^6.3.0
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

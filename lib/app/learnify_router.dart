@@ -68,7 +68,7 @@ GoRouter createLearnifyRouter(
         path: '/auth',
         builder: (BuildContext context, GoRouterState state) {
           return AuthGatePage(
-            backendConfigured: services.config.isSupabaseConfigured,
+            backendConfigured: services.config.isFirebaseConfigured,
             bootstrapWarning: services.bootstrapWarning,
           );
         },
