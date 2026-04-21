@@ -103,6 +103,10 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
   // Crash flash
   late final AnimationController _crashController;
 
+  // Rocket explosion
+  late final AnimationController _explosionController;
+  bool _rocketExploded = false;
+
   @override
   void initState() {
     super.initState();
@@ -135,6 +139,11 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
+
+    _explosionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
   }
 
   @override
@@ -143,28 +152,46 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
     _fallController.dispose();
     _burstController.dispose();
     _crashController.dispose();
+    _explosionController.dispose();
     super.dispose();
   }
 
   void _onStateChanged(GameState curr) {
-    // New round → reset & start falling
+    // New round → reset & start falling + auto-open mic
     if (curr.currentIndex != _prevIndex &&
         (curr.phase == GamePhase.ready || curr.phase == GamePhase.listening)) {
       _prevIndex = curr.currentIndex;
       _cardCleared = false;
+      _rocketExploded = false;
       _burstController.reset();
       _crashController.reset();
+      _explosionController.reset();
       // Speed increases per round: 8s → down to 5s
       final speedFactor = 1.0 + (curr.currentIndex * 0.06);
       _fallController.duration = Duration(
         milliseconds: (8000 / speedFactor).round(),
       );
       _fallController.forward(from: 0);
+
+      // Auto-open mic when card starts falling
+      if (curr.phase == GamePhase.ready && curr.speechReady) {
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) {
+            final bloc = context.read<GameBloc>();
+            if (bloc.state.canListen &&
+                bloc.state.phase == GamePhase.ready) {
+              bloc.add(const ListenPressed());
+            }
+          }
+        });
+      }
     }
 
-    // Life lost → screen shake
+    // Life lost → screen shake + rocket explosion
     if (curr.remainingLives < _prevLives) {
       _shakeController.forward(from: 0);
+      _rocketExploded = true;
+      _explosionController.forward(from: 0);
     }
     _prevLives = curr.remainingLives;
 
@@ -177,7 +204,7 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
       _burstController.forward(from: 0);
     }
 
-    // Feedback: wrong or timeout
+    // Feedback: wrong or timeout → rocket explodes
     if (_prevFeedback != curr.feedback &&
         curr.feedback != null &&
         (curr.feedback!.startsWith('Crash!') ||
@@ -185,6 +212,8 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
       _cardCleared = true;
       _fallController.stop();
       _crashController.forward(from: 0);
+      _rocketExploded = true;
+      _explosionController.forward(from: 0);
     }
 
     _prevFeedback = curr.feedback;
@@ -337,19 +366,52 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
                 ),
               ),
 
-              // Rocket at bottom center
+              // Rocket at bottom center (hidden during explosion)
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 120,
                 child: Center(
-                  child: _RocketDock(
-                    isDamaged: _isWrong(state.feedback),
-                    isBoosted: _isCorrect(state.feedback),
-                    isListening: isListening,
+                  child: AnimatedBuilder(
+                    animation: _explosionController,
+                    builder: (BuildContext context, Widget? child) {
+                      if (_rocketExploded && _explosionController.value > 0) {
+                        // Rocket shrinks and fades as it explodes
+                        final t = _explosionController.value;
+                        final scale = (1.0 - t * 0.8).clamp(0.0, 1.0);
+                        final opacity = (1.0 - t).clamp(0.0, 1.0);
+                        return Opacity(
+                          opacity: opacity,
+                          child: Transform.scale(
+                            scale: scale,
+                            child: child,
+                          ),
+                        );
+                      }
+                      return child!;
+                    },
+                    child: _RocketDock(
+                      isDamaged: _isWrong(state.feedback),
+                      isBoosted: _isCorrect(state.feedback),
+                      isListening: isListening,
+                    ),
                   ),
                 ),
               ),
+
+              // Rocket explosion particles
+              if (_rocketExploded &&
+                  (_explosionController.isAnimating ||
+                      _explosionController.value > 0))
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 80,
+                  height: 200,
+                  child: _RocketExplosionOverlay(
+                    controller: _explosionController,
+                  ),
+                ),
 
               // Mic button
               Positioned(
@@ -738,6 +800,179 @@ class _CrashFlashOverlay extends StatelessWidget {
       },
     );
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Rocket explosion — fiery debris bursting outward from rocket position
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _RocketExplosionOverlay extends StatefulWidget {
+  const _RocketExplosionOverlay({required this.controller});
+  final AnimationController controller;
+
+  @override
+  State<_RocketExplosionOverlay> createState() =>
+      _RocketExplosionOverlayState();
+}
+
+class _RocketExplosionOverlayState extends State<_RocketExplosionOverlay> {
+  late final List<_ExplosionDebris> _debris;
+
+  @override
+  void initState() {
+    super.initState();
+    final rng = math.Random();
+    _debris = List.generate(
+      32,
+      (_) => _ExplosionDebris(
+        angle: rng.nextDouble() * math.pi * 2,
+        speed: 40 + rng.nextDouble() * 260,
+        size: 3 + rng.nextDouble() * 8,
+        rotationSpeed: (rng.nextDouble() - 0.5) * 6,
+        color: <Color>[
+          const Color(0xFFEF476F),
+          const Color(0xFFF78C6B),
+          const Color(0xFFFFD166),
+          Colors.white,
+          const Color(0xFF4CC9F0),
+          const Color(0xFFA28AE5),
+        ][rng.nextInt(6)],
+        isFlame: rng.nextDouble() > 0.5,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (BuildContext context, Widget? child) {
+        return CustomPaint(
+          painter: _ExplosionPainter(
+            debris: _debris,
+            progress: widget.controller.value,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ExplosionDebris {
+  _ExplosionDebris({
+    required this.angle,
+    required this.speed,
+    required this.size,
+    required this.rotationSpeed,
+    required this.color,
+    required this.isFlame,
+  });
+  final double angle, speed, size, rotationSpeed;
+  final Color color;
+  final bool isFlame;
+}
+
+class _ExplosionPainter extends CustomPainter {
+  _ExplosionPainter({required this.debris, required this.progress});
+  final List<_ExplosionDebris> debris;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height * 0.5;
+
+    // Central flash — bright white/orange that fades fast
+    if (progress < 0.3) {
+      final flashOpacity = (1 - progress / 0.3).clamp(0.0, 1.0);
+      final flashRadius = 30 + progress * 120;
+      canvas.drawCircle(
+        Offset(cx, cy),
+        flashRadius,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(cx, cy),
+            flashRadius,
+            <Color>[
+              Colors.white.withValues(alpha: flashOpacity * 0.9),
+              const Color(0xFFFFD166).withValues(alpha: flashOpacity * 0.6),
+              const Color(0xFFEF476F).withValues(alpha: flashOpacity * 0.3),
+              Colors.transparent,
+            ],
+            <double>[0, 0.3, 0.6, 1.0],
+          ),
+      );
+    }
+
+    // Debris particles
+    for (final d in debris) {
+      final t = Curves.easeOutCubic.transform(progress);
+      final opacity = (1 - progress).clamp(0.0, 1.0);
+      final gravity = t * t * 80; // debris falls with gravity
+      final dx = cx + math.cos(d.angle) * d.speed * t;
+      final dy = cy + math.sin(d.angle) * d.speed * t + gravity;
+      final r = d.size * (1 - progress * 0.5);
+
+      if (d.isFlame) {
+        // Flame-like debris with elongated shape
+        canvas.save();
+        canvas.translate(dx, dy);
+        canvas.rotate(d.rotationSpeed * t * math.pi);
+        final rect = Rect.fromCenter(
+          center: Offset.zero,
+          width: r * 2,
+          height: r * 3.5,
+        );
+        canvas.drawOval(
+          rect,
+          Paint()..color = d.color.withValues(alpha: opacity * 0.8),
+        );
+        // Glow
+        canvas.drawOval(
+          rect.inflate(r),
+          Paint()..color = d.color.withValues(alpha: opacity * 0.15),
+        );
+        canvas.restore();
+      } else {
+        // Metal debris chunks
+        canvas.save();
+        canvas.translate(dx, dy);
+        canvas.rotate(d.rotationSpeed * t * math.pi);
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: r * 1.5, height: r),
+          Paint()..color = d.color.withValues(alpha: opacity * 0.9),
+        );
+        canvas.restore();
+
+        // Spark glow
+        canvas.drawCircle(
+          Offset(dx, dy),
+          r * 2,
+          Paint()..color = d.color.withValues(alpha: opacity * 0.12),
+        );
+      }
+    }
+
+    // Smoke rings
+    if (progress > 0.1 && progress < 0.8) {
+      final smokeT = ((progress - 0.1) / 0.7).clamp(0.0, 1.0);
+      final smokeOpacity = (1 - smokeT) * 0.2;
+      for (int i = 0; i < 3; i++) {
+        final ringRadius = 20 + smokeT * (80 + i * 30.0);
+        canvas.drawCircle(
+          Offset(cx + i * 8.0, cy - i * 10.0),
+          ringRadius,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 6 - smokeT * 4
+            ..color = Colors.white.withValues(alpha: smokeOpacity),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ExplosionPainter old) => old.progress != progress;
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
