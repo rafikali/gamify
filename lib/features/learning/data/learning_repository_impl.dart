@@ -230,7 +230,10 @@ class LearningRepositoryImpl implements LearningRepository {
       });
 
       await batch.commit();
-    } catch (_) {
+    } catch (error) {
+      // Log so we can diagnose silent save failures.
+      // ignore: avoid_print
+      print('[completeGame] Firebase write failed: $error');
       return updatedUser;
     }
 

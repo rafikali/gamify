@@ -10,7 +10,7 @@ class MockLearningSeed {
       accentHex: '#FF8A5B',
       emoji: '🍎',
       totalWords: 3,
-      masteryPercent: 0.68,
+      masteryPercent: 0.0,
     ),
     LearningCategory(
       id: 'vegetables',
@@ -20,7 +20,7 @@ class MockLearningSeed {
       accentHex: '#57C84D',
       emoji: '🥕',
       totalWords: 3,
-      masteryPercent: 0.48,
+      masteryPercent: 0.0,
     ),
     LearningCategory(
       id: 'jobs',
@@ -30,7 +30,7 @@ class MockLearningSeed {
       accentHex: '#5B4BDB',
       emoji: '🧑‍🚒',
       totalWords: 3,
-      masteryPercent: 0.34,
+      masteryPercent: 0.0,
     ),
     LearningCategory(
       id: 'animals',
@@ -40,7 +40,7 @@ class MockLearningSeed {
       accentHex: '#FFB703',
       emoji: '🦁',
       totalWords: 3,
-      masteryPercent: 0.72,
+      masteryPercent: 0.0,
     ),
     LearningCategory(
       id: 'daily',
@@ -50,7 +50,7 @@ class MockLearningSeed {
       accentHex: '#20A4F3',
       emoji: '☀️',
       totalWords: 3,
-      masteryPercent: 0.54,
+      masteryPercent: 0.0,
     ),
     LearningCategory(
       id: 'vehicles',
@@ -60,7 +60,7 @@ class MockLearningSeed {
       accentHex: '#F25F5C',
       emoji: '🚗',
       totalWords: 3,
-      masteryPercent: 0.41,
+      masteryPercent: 0.0,
     ),
   ];
 
@@ -69,15 +69,15 @@ class MockLearningSeed {
       id: 'first-launch',
       title: 'First Launch',
       description: 'Finish one category mission.',
-      progress: 1,
-      unlocked: true,
+      progress: 0,
+      unlocked: false,
       emoji: '🚀',
     ),
     Achievement(
       id: 'sharp-ears',
       title: 'Sharp Ears',
       description: 'Clear 10 objects without missing.',
-      progress: 0.6,
+      progress: 0,
       unlocked: false,
       emoji: '🎧',
     ),
@@ -85,13 +85,13 @@ class MockLearningSeed {
       id: 'streak-pilot',
       title: 'Streak Pilot',
       description: 'Keep a 7 day learning streak.',
-      progress: 0.42,
+      progress: 0,
       unlocked: false,
       emoji: '🔥',
     ),
   ];
 
-  static const List<int> weeklyXp = <int>[12, 18, 15, 22, 25, 20, 28];
+  static const List<int> weeklyXp = <int>[0, 0, 0, 0, 0, 0, 0];
 
   static const Map<String, List<WordChallenge>> wordsByCategory =
       <String, List<WordChallenge>>{
