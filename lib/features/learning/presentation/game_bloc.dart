@@ -42,6 +42,10 @@ class _SpeechFailed extends GameEvent {
   final String message;
 }
 
+class _SpeechSessionEnded extends GameEvent {
+  const _SpeechSessionEnded();
+}
+
 enum GamePhase { loading, ready, listening, feedback, completed, failure }
 
 class GameState {
@@ -153,6 +157,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<_RoundTicked>(_onRoundTicked);
     on<_AdvanceRoundRequested>(_onAdvanceRoundRequested);
     on<_SpeechFailed>(_onSpeechFailed);
+    on<_SpeechSessionEnded>(_onSpeechSessionEnded);
   }
 
   final LearningRepository _learningRepository;
@@ -186,6 +191,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     );
 
     _startRoundTimer(emit);
+    _openMic();
   }
 
   Future<void> _onListenPressed(
@@ -209,6 +215,10 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       ),
     );
 
+    await _startListening();
+  }
+
+  Future<void> _startListening() async {
     await _speechRecognitionService.listen(
       onResult: (String transcript, bool isFinal) {
         add(_TranscriptReceived(transcript, isFinal));
@@ -216,7 +226,30 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       onError: (String message) {
         add(_SpeechFailed(message));
       },
+      onDone: () {
+        // Mic session ended on its own (pauseFor / listenFor timeout).
+        add(const _SpeechSessionEnded());
+      },
     );
+  }
+
+  /// Called at round start to transition from ready → listening.
+  void _openMic() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!isClosed && state.speechReady && state.canListen) {
+        add(const ListenPressed());
+      }
+    });
+  }
+
+  /// Called when the mic session ends on its own — restarts without
+  /// changing phase (already in listening).
+  void _autoListen() {
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!isClosed && state.speechReady && state.phase == GamePhase.listening) {
+        _startListening();
+      }
+    });
   }
 
   Future<void> _onTranscriptReceived(
@@ -249,25 +282,14 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       return;
     }
 
-    if (event.isFinal) {
-      await _speechRecognitionService.stop();
-      _cancelRoundTimer();
-      emit(
-        state.copyWith(
-          phase: GamePhase.feedback,
-          wrongAnswers: state.wrongAnswers + 1,
-          remainingLives: state.remainingLives - 1,
-          combo: 0,
-          feedback: 'Crash! Say "${challenge.answer}" to keep flying.',
-        ),
-      );
-      _queueAdvance();
-    }
+    // If isFinal but no match, don't penalise — the onDone callback
+    // will fire and restart the mic automatically.
   }
 
-  void _onRoundTicked(_RoundTicked event, Emitter<GameState> emit) {
+  Future<void> _onRoundTicked(_RoundTicked event, Emitter<GameState> emit) async {
     if (state.secondsLeft <= 1) {
       _cancelRoundTimer();
+      await _speechRecognitionService.stop();
       emit(
         state.copyWith(
           phase: GamePhase.feedback,
@@ -308,6 +330,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       ),
     );
     _startRoundTimer(emit);
+    _openMic();
   }
 
   Future<void> _onSpeechFailed(
@@ -315,7 +338,21 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     Emitter<GameState> emit,
   ) async {
     await _speechRecognitionService.stop();
-    emit(state.copyWith(phase: GamePhase.ready, feedback: event.message));
+    // Retry — mic may have been interrupted in release mode.
+    if (!isClosed && state.phase == GamePhase.listening && state.speechReady) {
+      _autoListen();
+    }
+  }
+
+  Future<void> _onSpeechSessionEnded(
+    _SpeechSessionEnded event,
+    Emitter<GameState> emit,
+  ) async {
+    // Mic timed out on its own (silence / listenFor expired).
+    // Restart immediately if the round is still active.
+    if (!isClosed && state.phase == GamePhase.listening && state.speechReady) {
+      _autoListen();
+    }
   }
 
   Future<void> _finishGame(Emitter<GameState> emit) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../session/domain/session_user.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
@@ -12,31 +13,23 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.read<SessionCubit>().state.user!;
+    final user = context.select(
+      (SessionCubit cubit) => cubit.state.user!,
+    );
 
     return BlocProvider<DashboardCubit>(
       create: (BuildContext context) =>
           DashboardCubit(repository: context.read<LearningRepository>())
             ..load(user),
-      child: _ProfileView(
-        userName: user.displayName,
-        totalXp: user.totalXp,
-        streakDays: user.streakDays,
-      ),
+      child: _ProfileView(user: user),
     );
   }
 }
 
 class _ProfileView extends StatelessWidget {
-  const _ProfileView({
-    required this.userName,
-    required this.totalXp,
-    required this.streakDays,
-  });
+  const _ProfileView({required this.user});
 
-  final String userName;
-  final int totalXp;
-  final int streakDays;
+  final SessionUser user;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +94,7 @@ class _ProfileView extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  userName,
+                                  user.displayName,
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineMedium
@@ -121,14 +114,17 @@ class _ProfileView extends StatelessWidget {
                       Row(
                         children: <Widget>[
                           _ProfileMetric(
-                            value: '$totalXp',
+                            value: '${user.totalXp}',
                             label: 'Total Score',
                           ),
                           const SizedBox(width: 12),
-                          _ProfileMetric(value: '127', label: 'Words'),
+                          _ProfileMetric(
+                            value: '${user.wordsLearned}',
+                            label: 'Words',
+                          ),
                           const SizedBox(width: 12),
                           _ProfileMetric(
-                            value: '$streakDays',
+                            value: '${user.streakDays}',
                             label: 'Streak 🔥',
                           ),
                         ],

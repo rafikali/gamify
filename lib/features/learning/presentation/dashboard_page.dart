@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/icon_mapper.dart';
+import '../../session/domain/session_user.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
@@ -15,17 +16,16 @@ class DashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.read<SessionCubit>().state.user!;
+    final user = context.select(
+      (SessionCubit cubit) => cubit.state.user!,
+    );
 
     return BlocProvider<DashboardCubit>(
       create: (BuildContext context) =>
           DashboardCubit(repository: context.read<LearningRepository>())
             ..load(user),
       child: _DashboardView(
-        userName: user.displayName,
-        totalXp: user.totalXp,
-        streakDays: user.streakDays,
-        isGuest: user.isGuest,
+        user: user,
         bootstrapWarning: bootstrapWarning,
       ),
     );
@@ -33,18 +33,9 @@ class DashboardPage extends StatelessWidget {
 }
 
 class _DashboardView extends StatelessWidget {
-  const _DashboardView({
-    required this.userName,
-    required this.totalXp,
-    required this.streakDays,
-    required this.isGuest,
-    required this.bootstrapWarning,
-  });
+  const _DashboardView({required this.user, required this.bootstrapWarning});
 
-  final String userName;
-  final int totalXp;
-  final int streakDays;
-  final bool isGuest;
+  final SessionUser user;
   final String? bootstrapWarning;
 
   @override
@@ -79,10 +70,7 @@ class _DashboardView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: <Widget>[
                 _ProfilePanel(
-                  userName: userName,
-                  totalXp: totalXp,
-                  streakDays: streakDays,
-                  isGuest: isGuest,
+                  user: user,
                 ),
                 if (bootstrapWarning != null) ...<Widget>[
                   const SizedBox(height: 16),
@@ -143,17 +131,9 @@ class _DashboardView extends StatelessWidget {
 }
 
 class _ProfilePanel extends StatelessWidget {
-  const _ProfilePanel({
-    required this.userName,
-    required this.totalXp,
-    required this.streakDays,
-    required this.isGuest,
-  });
+  const _ProfilePanel({required this.user});
 
-  final String userName;
-  final int totalXp;
-  final int streakDays;
-  final bool isGuest;
+  final SessionUser user;
 
   @override
   Widget build(BuildContext context) {
@@ -188,14 +168,18 @@ class _ProfilePanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Welcome back, $userName',
+                      'Welcome back, ${user.displayName}',
                       style: Theme.of(
                         context,
                       ).textTheme.titleLarge?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      isGuest ? 'Guest pilot mode' : 'Synced profile mode',
+                      user.isGuest
+                          ? user.supportsCloudSync
+                                ? 'Guest pilot mode • synced'
+                                : 'Guest pilot mode • local only'
+                          : 'Synced profile mode',
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ],
@@ -206,9 +190,9 @@ class _ProfilePanel extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: <Widget>[
-              _StatBadge(label: 'XP', value: '$totalXp'),
+              _StatBadge(label: 'XP', value: '${user.totalXp}'),
               const SizedBox(width: 10),
-              _StatBadge(label: 'Streak', value: '$streakDays days'),
+              _StatBadge(label: 'Streak', value: '${user.streakDays} days'),
               const SizedBox(width: 10),
               const _StatBadge(label: 'Lives', value: '3 hearts'),
             ],

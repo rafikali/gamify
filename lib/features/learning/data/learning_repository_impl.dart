@@ -12,76 +12,79 @@ class LearningRepositoryImpl implements LearningRepository {
 
   @override
   Future<DashboardData> fetchDashboard(SessionUser user) async {
-    if (firestore == null || user.isGuest) {
-      return const DashboardData(
-        categories: MockLearningSeed.categories,
-        achievements: MockLearningSeed.achievements,
-      );
+    if (_shouldUseFallback(user)) {
+      return _fallbackDashboard();
     }
 
     try {
-      final categoryRows = await firestore!
-          .collection('categories')
-          .orderBy('sort_order')
-          .get();
+      final profileRef = firestore!.collection('profiles').doc(user.id);
+      final now = DateTime.now();
+      final weekStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 6));
 
-      final categories = categoryRows.docs
-          .map(
-            (QueryDocumentSnapshot<Map<String, dynamic>> row) =>
-                LearningCategory(
-                  id: row.id,
-                  title: row.data()['title'] as String? ?? 'Lesson',
-                  subtitle:
-                      row.data()['description'] as String? ?? 'Voice challenge',
-                  iconName: row.data()['icon_name'] as String? ?? 'school',
-                  accentHex: row.data()['accent_hex'] as String? ?? '#57C84D',
-                  emoji: row.data()['emoji'] as String? ?? '🚀',
-                  totalWords: _intValue(row.data()['total_words'], fallback: 3),
-                  masteryPercent:
-                      (row.data()['mastery_percent'] as num?)?.toDouble() ??
-                      0.0,
-                  imageUrl: row.data()['image_url'] as String?,
-                ),
-          )
+      final results = await Future.wait<Object>(<Future<Object>>[
+        firestore!.collection('categories').orderBy('sort_order').get(),
+        profileRef.collection('category_progress').get(),
+        profileRef
+            .collection('game_sessions')
+            .where(
+              'created_at',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
+            )
+            .get(),
+      ]);
+
+      final categoryRows = results[0] as QuerySnapshot<Map<String, dynamic>>;
+      final progressRows = results[1] as QuerySnapshot<Map<String, dynamic>>;
+      final sessionRows = results[2] as QuerySnapshot<Map<String, dynamic>>;
+
+      final progressByCategory = <String, Map<String, dynamic>>{
+        for (final doc in progressRows.docs) doc.id: doc.data(),
+      };
+
+      final fallbackCategories = MockLearningSeed.categories;
+      final categories = (categoryRows.docs.isEmpty
+              ? fallbackCategories
+              : categoryRows.docs.map(
+                  (QueryDocumentSnapshot<Map<String, dynamic>> row) =>
+                      _mapCategoryRow(row, progressByCategory[row.id]),
+                ))
           .toList();
 
-      List<Achievement> achievements = const <Achievement>[];
-      try {
-        final achievementRows = await firestore!
-            .collection('profiles')
-            .doc(user.id)
-            .collection('achievements')
-            .get();
+      if (categoryRows.docs.isEmpty) {
+        for (var i = 0; i < categories.length; i++) {
+          final category = categories[i];
+          final progress = progressByCategory[category.id];
+          if (progress == null) {
+            continue;
+          }
 
-        achievements = achievementRows.docs
-            .map(
-              (QueryDocumentSnapshot<Map<String, dynamic>> row) => Achievement(
-                id: row.id,
-                title: row.data()['title'] as String? ?? 'Achievement',
-                description: row.data()['description'] as String? ?? '',
-                progress: (row.data()['progress'] as num?)?.toDouble() ?? 0,
-                unlocked: row.data()['unlocked'] as bool? ?? false,
-                emoji: row.data()['emoji'] as String? ?? '🏁',
-              ),
-            )
-            .toList();
-      } catch (_) {
-        achievements = const <Achievement>[];
+          categories[i] = LearningCategory(
+            id: category.id,
+            title: category.title,
+            subtitle: category.subtitle,
+            iconName: category.iconName,
+            accentHex: category.accentHex,
+            emoji: category.emoji,
+            totalWords: category.totalWords,
+            masteryPercent:
+                (progress['mastery_percent'] as num?)?.toDouble() ??
+                category.masteryPercent,
+            imageUrl: category.imageUrl,
+          );
+        }
       }
 
       return DashboardData(
-        categories: categories.isEmpty
-            ? MockLearningSeed.categories
-            : categories,
-        achievements: achievements.isEmpty
-            ? MockLearningSeed.achievements
-            : achievements,
+        categories: categories,
+        achievements: _buildAchievements(user),
+        weeklyXp: _buildWeeklyXp(sessionRows.docs, weekStart),
       );
     } catch (_) {
-      return const DashboardData(
-        categories: MockLearningSeed.categories,
-        achievements: MockLearningSeed.achievements,
-      );
+      return _fallbackDashboard();
     }
   }
 
@@ -98,7 +101,7 @@ class LearningRepositoryImpl implements LearningRepository {
         MockLearningSeed.wordsByCategory[fallbackCategory.id] ??
         const <WordChallenge>[];
 
-    if (firestore == null || user.isGuest) {
+    if (_shouldUseFallback(user)) {
       return GameSessionBundle(
         category: fallbackCategory,
         challenges: fallbackWords,
@@ -106,11 +109,20 @@ class LearningRepositoryImpl implements LearningRepository {
     }
 
     try {
-      final wordRows = await firestore!
-          .collection('words')
-          .where('category_id', isEqualTo: categoryId)
-          .limit(12)
-          .get();
+      final results = await Future.wait<Object>(<Future<Object>>[
+        firestore!.collection('categories').doc(categoryId).get(),
+        firestore!
+            .collection('words')
+            .where('category_id', isEqualTo: categoryId)
+            .limit(12)
+            .get(),
+      ]);
+
+      final categoryRow = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final wordRows = results[1] as QuerySnapshot<Map<String, dynamic>>;
+      final category = categoryRow.exists
+          ? _mapCategoryDocument(categoryRow)
+          : fallbackCategory;
 
       final words = wordRows.docs
           .map(
@@ -129,7 +141,7 @@ class LearningRepositoryImpl implements LearningRepository {
           .toList();
 
       return GameSessionBundle(
-        category: fallbackCategory,
+        category: category,
         challenges: words.isEmpty ? fallbackWords : words,
       );
     } catch (_) {
@@ -146,27 +158,68 @@ class LearningRepositoryImpl implements LearningRepository {
     required GameSummary summary,
   }) async {
     final gainedXp = summary.score;
+    final currentStreak = summary.clearedAll ? user.streakDays + 1 : user.streakDays;
     final updatedUser = user.copyWith(
       totalXp: user.totalXp + gainedXp,
-      streakDays: summary.clearedAll ? user.streakDays + 1 : user.streakDays,
+      streakDays: currentStreak,
+      bestStreak: _maxInt(user.bestStreak, currentStreak),
+      wordsLearned: user.wordsLearned + summary.correctAnswers,
+      gamesPlayed: user.gamesPlayed + 1,
+      lastCategoryId: summary.categoryId,
     );
 
-    if (firestore == null || user.isGuest) {
+    if (_shouldUseFallback(user)) {
       return updatedUser;
     }
 
     try {
       final profileReference = firestore!.collection('profiles').doc(user.id);
+      final categoryProgressReference = profileReference
+          .collection('category_progress')
+          .doc(summary.categoryId);
+      final categoryProgressSnapshot = await categoryProgressReference.get();
+      final existingProgress = categoryProgressSnapshot.data();
+      final totalCorrect =
+          _intValue(existingProgress?['correct_answers'], fallback: 0) +
+          summary.correctAnswers;
+      final totalWrong =
+          _intValue(existingProgress?['wrong_answers'], fallback: 0) +
+          summary.wrongAnswers;
+      final totalAttempts = totalCorrect + totalWrong;
 
-      await profileReference.set(<String, dynamic>{
-        'id': user.id,
+      final batch = firestore!.batch();
+      batch.set(profileReference, <String, dynamic>{
         'display_name': user.displayName,
         'streak_days': updatedUser.streakDays,
+        'best_streak': updatedUser.bestStreak,
         'total_xp': updatedUser.totalXp,
+        'words_learned': updatedUser.wordsLearned,
+        'games_played': updatedUser.gamesPlayed,
+        'last_category_id': summary.categoryId,
+        'last_played_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      await profileReference.collection('game_sessions').add(<String, dynamic>{
+      batch.set(categoryProgressReference, <String, dynamic>{
+        'category_id': summary.categoryId,
+        'times_played':
+            _intValue(existingProgress?['times_played'], fallback: 0) + 1,
+        'correct_answers': totalCorrect,
+        'wrong_answers': totalWrong,
+        'cleared_count':
+            _intValue(existingProgress?['cleared_count'], fallback: 0) +
+            (summary.clearedAll ? 1 : 0),
+        'best_score': _maxInt(
+          _intValue(existingProgress?['best_score'], fallback: 0),
+          summary.score,
+        ),
+        'last_score': summary.score,
+        'mastery_percent': totalAttempts == 0 ? 0.0 : totalCorrect / totalAttempts,
+        'last_played_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      batch.set(profileReference.collection('game_sessions').doc(), <String, dynamic>{
         'category_id': summary.categoryId,
         'score': summary.score,
         'correct_answers': summary.correctAnswers,
@@ -175,6 +228,8 @@ class LearningRepositoryImpl implements LearningRepository {
         'elapsed_seconds': summary.elapsedSeconds,
         'created_at': FieldValue.serverTimestamp(),
       });
+
+      await batch.commit();
     } catch (_) {
       return updatedUser;
     }
@@ -182,7 +237,112 @@ class LearningRepositoryImpl implements LearningRepository {
     return updatedUser;
   }
 
+  bool _shouldUseFallback(SessionUser user) {
+    return firestore == null || user.isLocalOnlyGuest;
+  }
+
+  DashboardData _fallbackDashboard() {
+    return const DashboardData(
+      categories: MockLearningSeed.categories,
+      achievements: MockLearningSeed.achievements,
+      weeklyXp: MockLearningSeed.weeklyXp,
+    );
+  }
+
+  LearningCategory _mapCategoryRow(
+    QueryDocumentSnapshot<Map<String, dynamic>> row,
+    Map<String, dynamic>? progress,
+  ) {
+    final data = row.data();
+    return LearningCategory(
+      id: row.id,
+      title: data['title'] as String? ?? 'Lesson',
+      subtitle: data['description'] as String? ?? 'Voice challenge',
+      iconName: data['icon_name'] as String? ?? 'school',
+      accentHex: data['accent_hex'] as String? ?? '#57C84D',
+      emoji: data['emoji'] as String? ?? '🚀',
+      totalWords: _intValue(data['total_words'], fallback: 3),
+      masteryPercent:
+          (progress?['mastery_percent'] as num?)?.toDouble() ??
+          (data['mastery_percent'] as num?)?.toDouble() ??
+          0.0,
+      imageUrl: data['image_url'] as String?,
+    );
+  }
+
+  LearningCategory _mapCategoryDocument(
+    DocumentSnapshot<Map<String, dynamic>> row,
+  ) {
+    final data = row.data() ?? const <String, dynamic>{};
+    return LearningCategory(
+      id: row.id,
+      title: data['title'] as String? ?? 'Lesson',
+      subtitle: data['description'] as String? ?? 'Voice challenge',
+      iconName: data['icon_name'] as String? ?? 'school',
+      accentHex: data['accent_hex'] as String? ?? '#57C84D',
+      emoji: data['emoji'] as String? ?? '🚀',
+      totalWords: _intValue(data['total_words'], fallback: 3),
+      masteryPercent: (data['mastery_percent'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: data['image_url'] as String?,
+    );
+  }
+
+  List<Achievement> _buildAchievements(SessionUser user) {
+    return <Achievement>[
+      Achievement(
+        id: 'first-launch',
+        title: 'First Launch',
+        description: 'Finish one category mission.',
+        progress: user.gamesPlayed > 0 ? 1.0 : 0.0,
+        unlocked: user.gamesPlayed > 0,
+        emoji: '🚀',
+      ),
+      Achievement(
+        id: 'sharp-ears',
+        title: 'Sharp Ears',
+        description: 'Clear 10 objects without missing.',
+        progress: (user.wordsLearned / 10).clamp(0.0, 1.0),
+        unlocked: user.wordsLearned >= 10,
+        emoji: '🎧',
+      ),
+      Achievement(
+        id: 'streak-pilot',
+        title: 'Streak Pilot',
+        description: 'Keep a 7 day learning streak.',
+        progress: (user.bestStreak / 7).clamp(0.0, 1.0),
+        unlocked: user.bestStreak >= 7,
+        emoji: '🔥',
+      ),
+    ];
+  }
+
+  List<int> _buildWeeklyXp(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> sessions,
+    DateTime weekStart,
+  ) {
+    final buckets = List<int>.filled(7, 0);
+    for (final session in sessions) {
+      final timestamp = session.data()['created_at'];
+      if (timestamp is! Timestamp) {
+        continue;
+      }
+
+      final playedAt = timestamp.toDate();
+      final index = playedAt
+          .difference(DateTime(weekStart.year, weekStart.month, weekStart.day))
+          .inDays;
+      if (index < 0 || index >= buckets.length) {
+        continue;
+      }
+
+      buckets[index] += _intValue(session.data()['score'], fallback: 0);
+    }
+    return buckets;
+  }
+
   int _intValue(Object? value, {required int fallback}) {
     return (value as num?)?.toInt() ?? fallback;
   }
+
+  int _maxInt(int a, int b) => a > b ? a : b;
 }

@@ -10,6 +10,7 @@ abstract class SpeechRecognitionService {
   Future<void> listen({
     required void Function(String transcript, bool isFinal) onResult,
     required void Function(String message) onError,
+    void Function()? onDone,
   });
 
   Future<void> stop();
@@ -24,6 +25,7 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
 
   bool _initialized = false;
   bool _available = false;
+  void Function()? _onDone;
 
   @override
   Future<bool> initialize() async {
@@ -33,8 +35,8 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
 
     try {
       _available = await _speechToText.initialize(
-        onError: _noopError,
-        onStatus: _noopStatus,
+        onError: _handleError,
+        onStatus: _handleStatus,
       );
     } catch (_) {
       _available = false;
@@ -51,6 +53,7 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
   Future<void> listen({
     required void Function(String transcript, bool isFinal) onResult,
     required void Function(String message) onError,
+    void Function()? onDone,
   }) async {
     if (!_initialized) {
       final available = await initialize();
@@ -65,13 +68,21 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
       return;
     }
 
+    _onDone = onDone;
+
+    // If still listening from a previous session, stop first and wait a beat.
+    if (_speechToText.isListening) {
+      await _speechToText.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+
     try {
       await _speechToText.listen(
         onResult: (SpeechRecognitionResult result) {
           onResult(result.recognizedWords, result.finalResult);
         },
-        pauseFor: const Duration(seconds: 3),
-        listenFor: const Duration(seconds: 6),
+        pauseFor: const Duration(seconds: 4),
+        listenFor: const Duration(seconds: 30),
         listenOptions: SpeechListenOptions(partialResults: true),
         localeId: 'en_US',
         onSoundLevelChange: _noopLevel,
@@ -83,6 +94,7 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
 
   @override
   Future<void> stop() async {
+    _onDone = null;
     if (_speechToText.isListening) {
       await _speechToText.stop();
     }
@@ -90,12 +102,24 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
 
   @override
   void dispose() {
+    _onDone = null;
     _speechToText.cancel();
   }
 
-  void _noopStatus(String _) {}
+  void _handleStatus(String status) {
+    // 'done' or 'notListening' means the mic session ended on its own
+    // (e.g. pauseFor / listenFor timeout). Notify the caller so it can restart.
+    if (status == 'done' || status == 'notListening') {
+      final cb = _onDone;
+      _onDone = null;
+      cb?.call();
+    }
+  }
 
   void _noopLevel(double _) {}
 
-  void _noopError(SpeechRecognitionError _) {}
+  void _handleError(SpeechRecognitionError error) {
+    // Errors are forwarded through the listen() onError callback.
+    // The status callback handles the 'done' transition for restarts.
+  }
 }

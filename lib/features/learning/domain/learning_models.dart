@@ -41,10 +41,15 @@ class Achievement {
 }
 
 class DashboardData {
-  const DashboardData({required this.categories, required this.achievements});
+  const DashboardData({
+    required this.categories,
+    required this.achievements,
+    required this.weeklyXp,
+  });
 
   final List<LearningCategory> categories;
   final List<Achievement> achievements;
+  final List<int> weeklyXp;
 }
 
 class WordChallenge {

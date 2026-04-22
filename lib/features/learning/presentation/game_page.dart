@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -9,6 +10,7 @@ import '../../../core/voice/speech_recognition_service.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
+import 'game_audio_controller.dart';
 import 'game_bloc.dart';
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -86,11 +88,14 @@ class _GameView extends StatefulWidget {
 }
 
 class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
+  late final GameAudioController _audioController;
+
   // Screen shake
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnim;
   int _prevLives = 3;
   String? _prevFeedback;
+  GamePhase? _prevPhase;
 
   // Falling card
   late final AnimationController _fallController;
@@ -111,6 +116,9 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
+    _audioController = GameAudioController();
+    unawaited(_audioController.warmUp());
+
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
@@ -128,7 +136,7 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
     _fallController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
-    );
+    )..addListener(_syncDangerAudio);
 
     _burstController = AnimationController(
       vsync: this,
@@ -149,11 +157,33 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
   @override
   void dispose() {
     _shakeController.dispose();
+    _fallController.removeListener(_syncDangerAudio);
     _fallController.dispose();
     _burstController.dispose();
     _crashController.dispose();
     _explosionController.dispose();
+    unawaited(_audioController.dispose());
     super.dispose();
+  }
+
+  void _syncDangerAudio() {
+    if (!mounted) {
+      return;
+    }
+
+    final state = context.read<GameBloc>().state;
+    final shouldWarn =
+        !_cardCleared &&
+        (state.phase == GamePhase.ready || state.phase == GamePhase.listening);
+    if (!shouldWarn) {
+      unawaited(_audioController.clearDanger());
+      return;
+    }
+
+    final dangerLevel = ((_fallController.value - 0.42) / 0.58)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    unawaited(_audioController.setDangerLevel(dangerLevel));
   }
 
   void _onStateChanged(GameState curr) {
@@ -172,19 +202,8 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
         milliseconds: (8000 / speedFactor).round(),
       );
       _fallController.forward(from: 0);
-
-      // Auto-open mic when card starts falling
-      if (curr.phase == GamePhase.ready && curr.speechReady) {
-        Future.delayed(const Duration(milliseconds: 400), () {
-          if (mounted) {
-            final bloc = context.read<GameBloc>();
-            if (bloc.state.canListen &&
-                bloc.state.phase == GamePhase.ready) {
-              bloc.add(const ListenPressed());
-            }
-          }
-        });
-      }
+      unawaited(_audioController.startFlightLoop());
+      _syncDangerAudio();
     }
 
     // Life lost → screen shake + rocket explosion
@@ -201,6 +220,8 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
         curr.feedback!.startsWith('Boost!')) {
       _cardCleared = true;
       _fallController.stop();
+      unawaited(_audioController.clearDanger());
+      unawaited(_audioController.playBoost());
       _burstController.forward(from: 0);
     }
 
@@ -211,12 +232,24 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
             curr.feedback!.startsWith('Out of time.'))) {
       _cardCleared = true;
       _fallController.stop();
+      unawaited(_audioController.playCrash());
       _crashController.forward(from: 0);
       _rocketExploded = true;
       _explosionController.forward(from: 0);
     }
 
+    if (_prevPhase != GamePhase.listening &&
+        curr.phase == GamePhase.listening) {
+      unawaited(_audioController.playListenPing());
+    }
+
+    if (_prevPhase != curr.phase &&
+        (curr.phase == GamePhase.completed || curr.phase == GamePhase.failure)) {
+      unawaited(_audioController.stopAll());
+    }
+
     _prevFeedback = curr.feedback;
+    _prevPhase = curr.phase;
   }
 
   bool _isCorrect(String? fb) => fb != null && fb.startsWith('Boost!');
@@ -337,6 +370,16 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
                 top: 110,
                 right: 20,
                 child: _UpcomingWordsColumn(challenges: upcomingChallenges),
+              ),
+
+              // Back / quit button
+              Positioned(
+                top: 4,
+                left: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 28),
+                  onPressed: () => context.pop(),
+                ),
               ),
 
               // HUD

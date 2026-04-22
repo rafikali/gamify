@@ -91,6 +91,8 @@ class MockLearningSeed {
     ),
   ];
 
+  static const List<int> weeklyXp = <int>[12, 18, 15, 22, 25, 20, 28];
+
   static const Map<String, List<WordChallenge>> wordsByCategory =
       <String, List<WordChallenge>>{
         'fruits': <WordChallenge>[

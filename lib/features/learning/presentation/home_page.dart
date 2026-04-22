@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/icon_mapper.dart';
+import '../../session/domain/session_user.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
@@ -16,16 +17,16 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.read<SessionCubit>().state.user!;
+    final user = context.select(
+      (SessionCubit cubit) => cubit.state.user!,
+    );
 
     return BlocProvider<DashboardCubit>(
       create: (BuildContext context) =>
           DashboardCubit(repository: context.read<LearningRepository>())
             ..load(user),
       child: _HomeView(
-        userName: user.displayName,
-        totalXp: user.totalXp,
-        streakDays: user.streakDays,
+        user: user,
         bootstrapWarning: bootstrapWarning,
       ),
     );
@@ -33,16 +34,9 @@ class HomePage extends StatelessWidget {
 }
 
 class _HomeView extends StatelessWidget {
-  const _HomeView({
-    required this.userName,
-    required this.totalXp,
-    required this.streakDays,
-    required this.bootstrapWarning,
-  });
+  const _HomeView({required this.user, required this.bootstrapWarning});
 
-  final String userName;
-  final int totalXp;
-  final int streakDays;
+  final SessionUser user;
   final String? bootstrapWarning;
 
   @override
@@ -58,7 +52,10 @@ class _HomeView extends StatelessWidget {
           }
 
           final data = state.data!;
-          final continueCategory = data.categories.first;
+          final continueCategory = data.categories.firstWhere(
+            (LearningCategory category) => category.id == user.lastCategoryId,
+            orElse: () => data.categories.first,
+          );
 
           return SafeArea(
             child: ListView(
@@ -76,7 +73,7 @@ class _HomeView extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Ready to learn, $userName?',
+                            'Ready to learn, ${user.displayName}?',
                             style: Theme.of(context).textTheme.bodyLarge,
                           ),
                         ],
@@ -85,13 +82,13 @@ class _HomeView extends StatelessWidget {
                     _ScorePill(
                       icon: Icons.local_fire_department_rounded,
                       color: const Color(0xFFEF476F),
-                      value: '$streakDays',
+                      value: '${user.streakDays}',
                     ),
                     const SizedBox(width: 12),
                     _ScorePill(
                       icon: Icons.monetization_on_rounded,
                       color: const Color(0xFFFFD166),
-                      value: '$totalXp',
+                      value: '${user.totalXp}',
                     ),
                   ],
                 ),
@@ -152,7 +149,7 @@ class _HomeView extends StatelessWidget {
                 const SizedBox(height: 20),
                 InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  onTap: () => context.go('/game/${continueCategory.id}'),
+                  onTap: () => context.push('/game/${continueCategory.id}'),
                   child: Ink(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -187,7 +184,7 @@ class _HomeView extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '$streakDays',
+                                  '${user.streakDays}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
@@ -333,7 +330,7 @@ class _CategoryTile extends StatelessWidget {
     final color = parseHexColor(category.accentHex);
     return InkWell(
       borderRadius: BorderRadius.circular(24),
-      onTap: () => context.go('/game/${category.id}'),
+      onTap: () => context.push('/game/${category.id}'),
       child: Ink(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(

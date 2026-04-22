@@ -1,0 +1,234 @@
+{
+  "categories": [
+    {
+      "id": "fruits",
+      "title": "Fruits",
+      "description": "Name each snack before the rocket passes it.",
+      "icon_name": "nutrition",
+      "accent_hex": "#FF8A5B",
+      "emoji": "🍎",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 1
+    },
+    {
+      "id": "vegetables",
+      "title": "Vegetables",
+      "description": "Crunchy practice with calm pacing and clear prompts.",
+      "icon_name": "spa",
+      "accent_hex": "#57C84D",
+      "emoji": "🥕",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 2
+    },
+    {
+      "id": "jobs",
+      "title": "Jobs",
+      "description": "Spot the worker and say the English role out loud.",
+      "icon_name": "work",
+      "accent_hex": "#5B4BDB",
+      "emoji": "🧑‍🚒",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 3
+    },
+    {
+      "id": "animals",
+      "title": "Animals",
+      "description": "Fast rounds with wild cards and simple pronunciation.",
+      "icon_name": "pets",
+      "accent_hex": "#FFB703",
+      "emoji": "🦁",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 4
+    },
+    {
+      "id": "daily",
+      "title": "Daily Words",
+      "description": "Useful objects for everyday speech confidence.",
+      "icon_name": "lightbulb",
+      "accent_hex": "#20A4F3",
+      "emoji": "☀️",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 5
+    },
+    {
+      "id": "vehicles",
+      "title": "Vehicles",
+      "description": "Clear every moving card before the fuel runs low.",
+      "icon_name": "directions_car",
+      "accent_hex": "#F25F5C",
+      "emoji": "🚗",
+      "image_url": null,
+      "total_words": 3,
+      "sort_order": 6
+    }
+  ],
+  "words": [
+    {
+      "id": "fruit-apple",
+      "category_id": "fruits",
+      "answer": "apple",
+      "emoji": "🍎",
+      "image_url": null,
+      "fun_fact": "Apples float because they contain air.",
+      "pronunciation_hint": "AP-uhl"
+    },
+    {
+      "id": "fruit-banana",
+      "category_id": "fruits",
+      "answer": "banana",
+      "emoji": "🍌",
+      "image_url": null,
+      "fun_fact": "Bananas grow in large bunches.",
+      "pronunciation_hint": "buh-NAH-nuh"
+    },
+    {
+      "id": "fruit-orange",
+      "category_id": "fruits",
+      "answer": "orange",
+      "emoji": "🍊",
+      "image_url": null,
+      "fun_fact": "Oranges are packed with vitamin C.",
+      "pronunciation_hint": "OR-inj"
+    },
+    {
+      "id": "veg-carrot",
+      "category_id": "vegetables",
+      "answer": "carrot",
+      "emoji": "🥕",
+      "image_url": null,
+      "fun_fact": "Carrots can be orange, purple, or yellow.",
+      "pronunciation_hint": "KA-rut"
+    },
+    {
+      "id": "veg-broccoli",
+      "category_id": "vegetables",
+      "answer": "broccoli",
+      "emoji": "🥦",
+      "image_url": null,
+      "fun_fact": "Broccoli looks like a tiny tree.",
+      "pronunciation_hint": "BROK-uh-lee"
+    },
+    {
+      "id": "veg-pepper",
+      "category_id": "vegetables",
+      "answer": "pepper",
+      "emoji": "🫑",
+      "image_url": null,
+      "fun_fact": "Bell peppers start green, then change color.",
+      "pronunciation_hint": "PEH-per"
+    },
+    {
+      "id": "job-teacher",
+      "category_id": "jobs",
+      "answer": "teacher",
+      "emoji": "🧑‍🏫",
+      "image_url": null,
+      "fun_fact": "Teachers guide students every day.",
+      "pronunciation_hint": "TEE-chur"
+    },
+    {
+      "id": "job-doctor",
+      "category_id": "jobs",
+      "answer": "doctor",
+      "emoji": "🧑‍⚕️",
+      "image_url": null,
+      "fun_fact": "Doctors help people feel better.",
+      "pronunciation_hint": "DOK-tur"
+    },
+    {
+      "id": "job-firefighter",
+      "category_id": "jobs",
+      "answer": "firefighter",
+      "emoji": "🧑‍🚒",
+      "image_url": null,
+      "fun_fact": "Firefighters train for emergencies.",
+      "pronunciation_hint": "FIRE-fy-ter"
+    },
+    {
+      "id": "animal-lion",
+      "category_id": "animals",
+      "answer": "lion",
+      "emoji": "🦁",
+      "image_url": null,
+      "fun_fact": "A lion roar can be heard from far away.",
+      "pronunciation_hint": "LYE-uhn"
+    },
+    {
+      "id": "animal-elephant",
+      "category_id": "animals",
+      "answer": "elephant",
+      "emoji": "🐘",
+      "image_url": null,
+      "fun_fact": "Elephants use their trunks like tools.",
+      "pronunciation_hint": "EH-luh-funt"
+    },
+    {
+      "id": "animal-zebra",
+      "category_id": "animals",
+      "answer": "zebra",
+      "emoji": "🦓",
+      "image_url": null,
+      "fun_fact": "Every zebra has unique stripes.",
+      "pronunciation_hint": "ZEE-bruh"
+    },
+    {
+      "id": "daily-book",
+      "category_id": "daily",
+      "answer": "book",
+      "emoji": "📘",
+      "image_url": null,
+      "fun_fact": "Books carry stories and facts everywhere.",
+      "pronunciation_hint": "BUUK"
+    },
+    {
+      "id": "daily-water",
+      "category_id": "daily",
+      "answer": "water",
+      "emoji": "💧",
+      "image_url": null,
+      "fun_fact": "Water keeps the body energized.",
+      "pronunciation_hint": "WAW-ter"
+    },
+    {
+      "id": "daily-sun",
+      "category_id": "daily",
+      "answer": "sun",
+      "emoji": "☀️",
+      "image_url": null,
+      "fun_fact": "The sun gives Earth light and warmth.",
+      "pronunciation_hint": "SUN"
+    },
+    {
+      "id": "vehicle-car",
+      "category_id": "vehicles",
+      "answer": "car",
+      "emoji": "🚗",
+      "image_url": null,
+      "fun_fact": "Cars help people travel long distances.",
+      "pronunciation_hint": "KAR"
+    },
+    {
+      "id": "vehicle-bus",
+      "category_id": "vehicles",
+      "answer": "bus",
+      "emoji": "🚌",
+      "image_url": null,
+      "fun_fact": "Buses carry many people at the same time.",
+      "pronunciation_hint": "BUS"
+    },
+    {
+      "id": "vehicle-plane",
+      "category_id": "vehicles",
+      "answer": "plane",
+      "emoji": "✈️",
+      "image_url": null,
+      "fun_fact": "Planes fly high above the clouds.",
+      "pronunciation_hint": "PLAYN"
+    }
+  ]
+}

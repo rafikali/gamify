@@ -118,15 +118,34 @@ class SessionCubit extends Cubit<SessionState> {
         clearNotice: true,
       ),
     );
-    final guest = await _sessionRepository.continueAsGuest();
-    emit(
-      state.copyWith(
-        status: SessionStatus.guest,
-        user: guest,
-        clearError: true,
-        clearNotice: true,
-      ),
-    );
+
+    try {
+      final guest = await _sessionRepository.continueAsGuest();
+      emit(
+        state.copyWith(
+          status: SessionStatus.guest,
+          user: guest,
+          clearError: true,
+          clearNotice: true,
+        ),
+      );
+    } on SessionFailure catch (failure) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.failure,
+          errorMessage: failure.message,
+        ),
+      );
+      emit(state.copyWith(status: SessionStatus.signedOut));
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: SessionStatus.failure,
+          errorMessage: 'Guest sign-in failed: $error',
+        ),
+      );
+      emit(state.copyWith(status: SessionStatus.signedOut));
+    }
   }
 
   Future<void> signInWithEmail({

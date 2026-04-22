@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/widgets/icon_mapper.dart';
+import '../../session/domain/session_user.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
@@ -13,22 +14,23 @@ class ProgressPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.read<SessionCubit>().state.user!;
+    final user = context.select(
+      (SessionCubit cubit) => cubit.state.user!,
+    );
 
     return BlocProvider<DashboardCubit>(
       create: (BuildContext context) =>
           DashboardCubit(repository: context.read<LearningRepository>())
             ..load(user),
-      child: _ProgressView(totalXp: user.totalXp, streakDays: user.streakDays),
+      child: _ProgressView(user: user),
     );
   }
 }
 
 class _ProgressView extends StatelessWidget {
-  const _ProgressView({required this.totalXp, required this.streakDays});
+  const _ProgressView({required this.user});
 
-  final int totalXp;
-  final int streakDays;
+  final SessionUser user;
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +42,11 @@ class _ProgressView extends StatelessWidget {
           }
           final categories =
               state.data?.categories ?? const <LearningCategory>[];
-
-          final weeklyData = <int>[12, 18, 15, 22, 25, 20, 28];
+          final weeklyData = state.data?.weeklyXp ?? List<int>.filled(7, 0);
+          final weeklyTotal = weeklyData.fold(
+            0,
+            (int sum, int value) => sum + value,
+          );
           return SafeArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
@@ -66,26 +71,28 @@ class _ProgressView extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             const Text(
-                              'Total Words Learned',
+                              'Words Cleared',
                               style: TextStyle(color: Colors.white70),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '$totalXp',
+                              '${user.wordsLearned}',
                               style: Theme.of(context).textTheme.displaySmall
                                   ?.copyWith(color: Colors.white),
                             ),
                             const SizedBox(height: 8),
-                            const Row(
+                            Row(
                               children: <Widget>[
-                                Icon(
+                                const Icon(
                                   Icons.trending_up_rounded,
                                   color: Colors.white,
                                   size: 16,
                                 ),
-                                SizedBox(width: 6),
+                                const SizedBox(width: 6),
                                 Text(
-                                  '+15 this week',
+                                  weeklyTotal > 0
+                                      ? '+$weeklyTotal XP this week'
+                                      : 'Start your streak today',
                                   style: TextStyle(color: Colors.white),
                                 ),
                               ],
@@ -158,11 +165,11 @@ class _ProgressView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
                       _MetricColumn(
-                        value: '$streakDays Days',
+                        value: '${user.streakDays} Days',
                         label: 'Current Streak 🔥',
                       ),
-                      const _MetricColumn(
-                        value: '12 Days',
+                      _MetricColumn(
+                        value: '${user.bestStreak} Days',
                         label: 'Best Streak 🏆',
                       ),
                     ],
