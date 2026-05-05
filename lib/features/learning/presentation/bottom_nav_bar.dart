@@ -17,7 +17,7 @@ class BottomNavBar extends StatelessWidget {
       ),
       _NavTab(
         id: 'play',
-        icon: Icons.play_arrow_rounded,
+        icon: Icons.sports_esports_rounded,
         label: 'Play',
         route: '/game/fruits',
       ),

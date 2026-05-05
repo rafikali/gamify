@@ -2,7 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../session/presentation/session_cubit.dart';
 
 class ResultPage extends StatefulWidget {
   const ResultPage({
@@ -80,6 +83,31 @@ class _ResultPageState extends State<ResultPage> with TickerProviderStateMixin {
         ][rng.nextInt(6)],
       ),
     );
+
+    _maybeShowSignInNudge();
+  }
+
+  void _maybeShowSignInNudge() {
+    final sessionState = context.read<SessionCubit>().state;
+    final user = sessionState.user;
+    if (user == null || !user.isGuest || user.gamesPlayed < 2) {
+      return;
+    }
+
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (!mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (BuildContext sheetContext) {
+          return _SignInNudgeSheet(
+            gamesPlayed: user.gamesPlayed,
+            parentSessionCubit: context.read<SessionCubit>(),
+          );
+        },
+      );
+    });
   }
 
   @override
@@ -323,7 +351,7 @@ class _ResultPageState extends State<ResultPage> with TickerProviderStateMixin {
                               child: ElevatedButton(
                                 onPressed: () => context
                                     .go('/game/${widget.categoryId}'),
-                                child: const Text('Next Level'),
+                                child: const Text('Play Again'),
                               ),
                             ),
                           ],
@@ -735,6 +763,312 @@ class _BadgeUnlockedState extends State<_BadgeUnlocked>
           ),
         );
       },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Sign-in nudge bottom sheet for guests
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _SignInNudgeSheet extends StatefulWidget {
+  const _SignInNudgeSheet({
+    required this.gamesPlayed,
+    required this.parentSessionCubit,
+  });
+
+  final int gamesPlayed;
+  final SessionCubit parentSessionCubit;
+
+  @override
+  State<_SignInNudgeSheet> createState() => _SignInNudgeSheetState();
+}
+
+class _SignInNudgeSheetState extends State<_SignInNudgeSheet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _busy = true);
+    try {
+      await widget.parentSessionCubit.signInWithGoogle();
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _goToAuth() {
+    Navigator.of(context).pop();
+    context.go('/auth');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: <Color>[
+            Color(0xFF1A1030),
+            Color(0xFF3D2B6B),
+          ],
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+        ),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: const Color(0xFF7B6FD4).withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF7B6FD4).withValues(alpha: 0.3),
+            blurRadius: 40,
+            offset: const Offset(0, -10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Warning icon with pulse glow
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (BuildContext context, Widget? child) {
+                final glow = 0.2 + _pulseController.value * 0.3;
+                return Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: <Color>[
+                        const Color(0xFFFFD166).withValues(alpha: glow),
+                        const Color(0xFFFFD166).withValues(alpha: 0.05),
+                        Colors.transparent,
+                      ],
+                      stops: const <double>[0.0, 0.6, 1.0],
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '\u{1F6E1}\u{FE0F}',
+                      style: TextStyle(fontSize: 36),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Title
+            const Text(
+              'Save Your Progress!',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Description
+            Text(
+              "You've completed ${widget.gamesPlayed} games as a guest. "
+              'If you delete the app or switch devices, all your progress will be lost forever.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Progress at risk bar
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF476F).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFEF476F).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFEF476F),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your XP, streaks, and achievements are not backed up',
+                      style: TextStyle(
+                        color: const Color(0xFFEF476F).withValues(alpha: 0.9),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Google sign-in button
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: GestureDetector(
+                onTap: _busy ? null : _signInWithGoogle,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: <Color>[Color(0xFF4CC9F0), Color(0xFF7B6FD4)],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: const Color(0xFF4CC9F0).withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      if (_busy)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'G',
+                            style: TextStyle(
+                              color: Color(0xFF4285F4),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _busy ? 'Connecting...' : 'Continue with Google',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Email sign-in option
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: GestureDetector(
+                onTap: _busy ? null : _goToAuth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Icon(
+                        Icons.email_outlined,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Sign in with Email',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Dismiss
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Text(
+                'Maybe later',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

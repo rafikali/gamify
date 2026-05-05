@@ -58,6 +58,9 @@ class _HomeView extends StatelessWidget {
           }
 
           final data = state.data!;
+          if (data.categories.isEmpty) {
+            return const Center(child: Text('No categories available.'));
+          }
           final continueCategory = data.categories.firstWhere(
             (LearningCategory category) => category.id == user.lastCategoryId,
             orElse: () => data.categories.first,

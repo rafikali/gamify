@@ -1,3 +1,19 @@
+enum GameType {
+  rocketRush('Rocket Rush', '🚀', 'Say words before they crash!'),
+  bubblePop('Bubble Pop', '🫧', 'Pop rising bubbles with your voice!'),
+  spellCast('Spell Cast', '✨', 'Cast spells by speaking the word!'),
+  speedBlitz('Speed Blitz', '⚡', 'Rapid-fire voice challenge!'),
+  meteorStorm('Meteor Storm', '☄️', 'Survive the fiery meteor barrage!'),
+  crystalCave('Crystal Cave', '💎', 'Shatter crystals with your voice!'),
+  bossBattle('Boss Battle', '🐉', 'Defeat the dragon with words!'),
+  rhythmRush('Rhythm Rush', '🎵', 'Ride the beat and speak on time!');
+
+  const GameType(this.title, this.emoji, this.subtitle);
+  final String title;
+  final String emoji;
+  final String subtitle;
+}
+
 class LearningCategory {
   const LearningCategory({
     required this.id,

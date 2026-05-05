@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../session/domain/session_user.dart';
@@ -12,8 +14,12 @@ class LearningRepositoryImpl implements LearningRepository {
 
   @override
   Future<DashboardData> fetchDashboard(SessionUser user) async {
-    if (_shouldUseFallback(user)) {
-      return _fallbackDashboard();
+    if (firestore == null) {
+      return DashboardData(
+        categories: MockLearningSeed.categories,
+        achievements: _buildAchievements(user),
+        weeklyXp: List<int>.filled(7, 0),
+      );
     }
 
     try {
@@ -40,6 +46,13 @@ class LearningRepositoryImpl implements LearningRepository {
       final categoryRows = results[0] as QuerySnapshot<Map<String, dynamic>>;
       final progressRows = results[1] as QuerySnapshot<Map<String, dynamic>>;
       final sessionRows = results[2] as QuerySnapshot<Map<String, dynamic>>;
+
+      dev.log(
+        'fetchDashboard: fetched ${categoryRows.docs.length} categories, '
+        '${progressRows.docs.length} category_progress docs, '
+        '${sessionRows.docs.length} game_sessions this week',
+        name: 'LEARNIFY.Repo',
+      );
 
       final progressByCategory = <String, Map<String, dynamic>>{
         for (final doc in progressRows.docs) doc.id: doc.data(),
@@ -83,8 +96,18 @@ class LearningRepositoryImpl implements LearningRepository {
         achievements: _buildAchievements(user),
         weeklyXp: _buildWeeklyXp(sessionRows.docs, weekStart),
       );
-    } catch (_) {
-      return _fallbackDashboard();
+    } catch (error, stackTrace) {
+      dev.log(
+        'fetchDashboard: Firebase read FAILED — $error',
+        name: 'LEARNIFY.Repo',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return DashboardData(
+        categories: const <LearningCategory>[],
+        achievements: _buildAchievements(user),
+        weeklyXp: List<int>.filled(7, 0),
+      );
     }
   }
 
@@ -101,7 +124,7 @@ class LearningRepositoryImpl implements LearningRepository {
         MockLearningSeed.wordsByCategory[fallbackCategory.id] ??
         const <WordChallenge>[];
 
-    if (_shouldUseFallback(user)) {
+    if (firestore == null) {
       return GameSessionBundle(
         category: fallbackCategory,
         challenges: fallbackWords,
@@ -158,7 +181,8 @@ class LearningRepositoryImpl implements LearningRepository {
     required GameSummary summary,
   }) async {
     final gainedXp = summary.score;
-    final currentStreak = summary.clearedAll ? user.streakDays + 1 : user.streakDays;
+    final now = DateTime.now();
+    final currentStreak = _calculateStreak(user, now);
     final updatedUser = user.copyWith(
       totalXp: user.totalXp + gainedXp,
       streakDays: currentStreak,
@@ -166,11 +190,33 @@ class LearningRepositoryImpl implements LearningRepository {
       wordsLearned: user.wordsLearned + summary.correctAnswers,
       gamesPlayed: user.gamesPlayed + 1,
       lastCategoryId: summary.categoryId,
+      lastPlayedAt: now,
     );
 
-    if (_shouldUseFallback(user)) {
+    // Skip Firestore write when running in mock/offline mode.
+    if (firestore == null) {
+      dev.log(
+        'completeGame: firestore is null — skipping cloud save.',
+        name: 'LEARNIFY.Repo',
+      );
       return updatedUser;
     }
+
+    // Skip for local-only guests who have no Firebase Auth uid.
+    if (user.id == SessionUser.localGuestId) {
+      dev.log(
+        'completeGame: local guest — skipping cloud save.',
+        name: 'LEARNIFY.Repo',
+      );
+      return updatedUser;
+    }
+
+    dev.log(
+      'completeGame: entry — userId=${user.id}, isGuest=${user.isGuest}, '
+      'categoryId=${summary.categoryId}, score=${summary.score}, '
+      'correct=${summary.correctAnswers}, wrong=${summary.wrongAnswers}',
+      name: 'LEARNIFY.Repo',
+    );
 
     try {
       final profileReference = firestore!.collection('profiles').doc(user.id);
@@ -229,27 +275,32 @@ class LearningRepositoryImpl implements LearningRepository {
         'created_at': FieldValue.serverTimestamp(),
       });
 
+      dev.log(
+        'completeGame: batch commit starting — '
+        'profiles/${user.id}, '
+        'category_progress/${summary.categoryId}, '
+        'game_sessions/new',
+        name: 'LEARNIFY.Repo',
+      );
+
       await batch.commit();
-    } catch (error) {
-      // Log so we can diagnose silent save failures.
-      // ignore: avoid_print
-      print('[completeGame] Firebase write failed: $error');
+
+      dev.log(
+        'completeGame: batch commit SUCCESS — '
+        'score=${summary.score}, xp=${updatedUser.totalXp}',
+        name: 'LEARNIFY.Repo',
+      );
+    } catch (error, stackTrace) {
+      dev.log(
+        'completeGame: Firebase write FAILED — $error',
+        name: 'LEARNIFY.Repo',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return updatedUser;
     }
 
     return updatedUser;
-  }
-
-  bool _shouldUseFallback(SessionUser user) {
-    return firestore == null || user.isLocalOnlyGuest;
-  }
-
-  DashboardData _fallbackDashboard() {
-    return const DashboardData(
-      categories: MockLearningSeed.categories,
-      achievements: MockLearningSeed.achievements,
-      weeklyXp: MockLearningSeed.weeklyXp,
-    );
   }
 
   LearningCategory _mapCategoryRow(
@@ -341,6 +392,37 @@ class LearningRepositoryImpl implements LearningRepository {
       buckets[index] += _intValue(session.data()['score'], fallback: 0);
     }
     return buckets;
+  }
+
+  /// Calculates the correct streak value based on the last played date.
+  /// Only increments once per new calendar day, resets if a day is skipped.
+  int _calculateStreak(SessionUser user, DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (user.lastPlayedAt == null) {
+      // First time playing — start a streak of 1.
+      return 1;
+    }
+
+    final lastDate = DateTime(
+      user.lastPlayedAt!.year,
+      user.lastPlayedAt!.month,
+      user.lastPlayedAt!.day,
+    );
+
+    if (lastDate == today) {
+      // Already played today — keep current streak.
+      return user.streakDays;
+    }
+
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (lastDate == yesterday) {
+      // Consecutive day — increment streak.
+      return user.streakDays + 1;
+    }
+
+    // Missed a day — reset streak to 1.
+    return 1;
   }
 
   int _intValue(Object? value, {required int fallback}) {

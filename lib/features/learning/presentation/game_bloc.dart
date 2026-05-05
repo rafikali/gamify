@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -170,6 +171,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
   Future<void> _onStarted(GameStarted event, Emitter<GameState> emit) async {
     _startedAt = DateTime.now();
+    dev.log(
+      '_onStarted: userId=${_user.id}, isGuest=${_user.isGuest}, '
+      'categoryId=${event.categoryId}',
+      name: 'LEARNIFY.GameBloc',
+    );
 
     emit(const GameState.initial());
 
@@ -235,7 +241,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
   /// Called at round start to transition from ready → listening.
   void _openMic() {
-    Future.delayed(const Duration(milliseconds: 300), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!isClosed && state.speechReady && state.canListen) {
         add(const ListenPressed());
       }
@@ -245,7 +251,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   /// Called when the mic session ends on its own — restarts without
   /// changing phase (already in listening).
   void _autoListen() {
-    Future.delayed(const Duration(milliseconds: 250), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!isClosed && state.speechReady && state.phase == GamePhase.listening) {
         _startListening();
       }
@@ -359,16 +365,33 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     _cancelRoundTimer();
     final startedAt = _startedAt ?? DateTime.now();
     final elapsedSeconds = DateTime.now().difference(startedAt).inSeconds;
+    final categoryId = state.category?.id ?? 'unknown';
+
+    dev.log(
+      '_finishGame: SAVING — userId=${_user.id}, category=$categoryId, '
+      'score=${state.score}, correct=${state.correctAnswers}, '
+      'wrong=${state.wrongAnswers}, lives=${state.remainingLives}, '
+      'elapsed=${elapsedSeconds}s',
+      name: 'LEARNIFY.GameBloc',
+    );
+
     final updatedUser = await _learningRepository.completeGame(
       user: _user,
       summary: GameSummary(
-        categoryId: state.category?.id ?? 'unknown',
+        categoryId: categoryId,
         score: state.score,
         correctAnswers: state.correctAnswers,
         wrongAnswers: state.wrongAnswers,
         clearedAll: state.remainingLives > 0,
         elapsedSeconds: elapsedSeconds,
       ),
+    );
+
+    dev.log(
+      '_finishGame: DONE — updatedUser.totalXp=${updatedUser.totalXp}, '
+      'gamesPlayed=${updatedUser.gamesPlayed}, '
+      'wordsLearned=${updatedUser.wordsLearned}',
+      name: 'LEARNIFY.GameBloc',
     );
 
     emit(

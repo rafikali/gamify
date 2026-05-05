@@ -73,7 +73,7 @@ class SpeechRecognitionServiceImpl implements SpeechRecognitionService {
     // If still listening from a previous session, stop first and wait a beat.
     if (_speechToText.isListening) {
       await _speechToText.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
 
     try {

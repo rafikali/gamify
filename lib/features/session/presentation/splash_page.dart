@@ -16,7 +16,8 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  Timer? _timer;
+  late final StreamSubscription<SessionState> _sessionSub;
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -26,19 +27,36 @@ class _SplashPageState extends State<SplashPage>
       duration: const Duration(milliseconds: 1100),
     )..forward();
 
-    _timer = Timer(const Duration(milliseconds: 2500), () {
-      if (!mounted) {
-        return;
-      }
+    // Wait for session restore to finish (status leaves `checking`),
+    // but show the splash for at least 1.5s so the animation plays.
+    final minDelay = Future<void>.delayed(const Duration(milliseconds: 1500));
+    final cubit = context.read<SessionCubit>();
 
-      final hasSession = context.read<SessionCubit>().state.user != null;
-      context.go(hasSession ? '/home' : '/onboarding');
+    _sessionSub = cubit.stream.listen((SessionState state) {
+      if (state.status != SessionStatus.checking) {
+        _sessionSub.cancel();
+        minDelay.then((_) => _navigate());
+      }
     });
+
+    // If the session was already restored synchronously (e.g. no Firebase),
+    // the stream won't emit — use a fallback.
+    if (cubit.state.status != SessionStatus.checking) {
+      _sessionSub.cancel();
+      minDelay.then((_) => _navigate());
+    }
+  }
+
+  void _navigate() {
+    if (!mounted || _navigated) return;
+    _navigated = true;
+    final hasSession = context.read<SessionCubit>().state.user != null;
+    context.go(hasSession ? '/home' : '/onboarding');
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _sessionSub.cancel();
     _controller.dispose();
     super.dispose();
   }

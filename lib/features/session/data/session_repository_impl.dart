@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -331,6 +333,7 @@ class SessionRepositoryImpl implements SessionRepository {
       lastCategoryId:
           _stringOrNull(data?['last_category_id']) ?? fallback.lastCategoryId,
       isGuest: user.isAnonymous,
+      lastPlayedAt: _timestampValue(data?['last_played_at'])?.toDate(),
     );
   }
 
@@ -353,6 +356,21 @@ class SessionRepositoryImpl implements SessionRepository {
       'last_category_id': sessionUser.lastCategoryId,
       'updated_at': FieldValue.serverTimestamp(),
       if (includeCreatedAt) 'created_at': FieldValue.serverTimestamp(),
+      if (includeCreatedAt) 'device_info': _collectDeviceInfo(),
+    };
+  }
+
+  Map<String, dynamic> _collectDeviceInfo() {
+    if (kIsWeb) {
+      return <String, dynamic>{
+        'platform': 'web',
+      };
+    }
+    return <String, dynamic>{
+      'platform': Platform.operatingSystem,
+      'os_version': Platform.operatingSystemVersion,
+      'locale': Platform.localeName,
+      'dart_version': Platform.version.split(' ').first,
     };
   }
 

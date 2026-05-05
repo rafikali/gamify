@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/bootstrap/app_bootstrap.dart';
+import '../features/learning/domain/learning_models.dart';
 import '../features/learning/presentation/game_page.dart';
+import '../features/learning/presentation/game_type_page.dart';
 import '../features/learning/presentation/home_page.dart';
 import '../features/learning/presentation/profile_page.dart';
 import '../features/learning/presentation/progress_page.dart';
@@ -82,9 +84,23 @@ GoRouter createLearnifyRouter(
       GoRoute(
         path: '/game/:categoryId',
         builder: (BuildContext context, GoRouterState state) {
+          return GameTypePage(
+            categoryId: state.pathParameters['categoryId'] ?? '',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/game/:categoryId/:gameType',
+        builder: (BuildContext context, GoRouterState state) {
+          final gameTypeName = state.pathParameters['gameType'] ?? 'rocketRush';
+          final gameType = GameType.values.firstWhere(
+            (GameType gt) => gt.name == gameTypeName,
+            orElse: () => GameType.rocketRush,
+          );
           return GamePage(
             categoryId: state.pathParameters['categoryId'] ?? '',
             speechRecognitionService: services.speechRecognitionService,
+            gameType: gameType,
           );
         },
       ),

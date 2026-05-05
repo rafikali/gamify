@@ -11,6 +11,7 @@ class SessionUser {
     required this.gamesPlayed,
     required this.lastCategoryId,
     required this.isGuest,
+    this.lastPlayedAt,
   });
 
   const SessionUser.guest()
@@ -22,7 +23,8 @@ class SessionUser {
       wordsLearned = 0,
       gamesPlayed = 0,
       lastCategoryId = null,
-      isGuest = true;
+      isGuest = true,
+      lastPlayedAt = null;
 
   final String id;
   final String displayName;
@@ -33,6 +35,7 @@ class SessionUser {
   final int gamesPlayed;
   final String? lastCategoryId;
   final bool isGuest;
+  final DateTime? lastPlayedAt;
 
   bool get isLocalOnlyGuest => isGuest && id == localGuestId;
   bool get supportsCloudSync => !isLocalOnlyGuest;
@@ -47,6 +50,7 @@ class SessionUser {
     int? gamesPlayed,
     String? lastCategoryId,
     bool? isGuest,
+    DateTime? lastPlayedAt,
   }) {
     return SessionUser(
       id: id ?? this.id,
@@ -58,6 +62,37 @@ class SessionUser {
       gamesPlayed: gamesPlayed ?? this.gamesPlayed,
       lastCategoryId: lastCategoryId ?? this.lastCategoryId,
       isGuest: isGuest ?? this.isGuest,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is SessionUser &&
+        other.id == id &&
+        other.displayName == displayName &&
+        other.streakDays == streakDays &&
+        other.bestStreak == bestStreak &&
+        other.totalXp == totalXp &&
+        other.wordsLearned == wordsLearned &&
+        other.gamesPlayed == gamesPlayed &&
+        other.lastCategoryId == lastCategoryId &&
+        other.isGuest == isGuest &&
+        other.lastPlayedAt == lastPlayedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    displayName,
+    streakDays,
+    bestStreak,
+    totalXp,
+    wordsLearned,
+    gamesPlayed,
+    lastCategoryId,
+    isGuest,
+    lastPlayedAt,
+  );
 }

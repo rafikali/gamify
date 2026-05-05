@@ -34,7 +34,13 @@ class _ProfileView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: BlocBuilder<DashboardCubit, DashboardState>(
+      body: BlocListener<SessionCubit, SessionState>(
+        listenWhen: (SessionState prev, SessionState curr) =>
+            prev.user != curr.user && curr.user != null,
+        listener: (BuildContext context, SessionState state) {
+          context.read<DashboardCubit>().load(state.user!);
+        },
+        child: BlocBuilder<DashboardCubit, DashboardState>(
         builder: (BuildContext context, DashboardState state) {
           if (state.loading) {
             return const Center(child: CircularProgressIndicator());
@@ -262,6 +268,7 @@ class _ProfileView extends StatelessWidget {
             ),
           );
         },
+      ),
       ),
       bottomNavigationBar: const BottomNavBar(activeTab: 'profile'),
     );
