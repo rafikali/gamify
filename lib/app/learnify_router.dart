@@ -8,6 +8,7 @@ import '../features/learning/domain/learning_models.dart';
 import '../features/learning/presentation/game_page.dart';
 import '../features/learning/presentation/game_type_page.dart';
 import '../features/learning/presentation/home_page.dart';
+import '../features/learning/presentation/play_page.dart';
 import '../features/learning/presentation/profile_page.dart';
 import '../features/learning/presentation/progress_page.dart';
 import '../features/learning/presentation/result_page.dart';
@@ -35,6 +36,7 @@ GoRouter createLearnifyRouter(
 
       final protectedPaths = <String>[
         '/home',
+        '/play',
         '/progress',
         '/profile',
         '/result',
@@ -79,6 +81,12 @@ GoRouter createLearnifyRouter(
         path: '/home',
         builder: (BuildContext context, GoRouterState state) {
           return HomePage(bootstrapWarning: services.bootstrapWarning);
+        },
+      ),
+      GoRoute(
+        path: '/play',
+        builder: (BuildContext context, GoRouterState state) {
+          return const PlayPage();
         },
       ),
       GoRoute(

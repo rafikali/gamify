@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learnify Admin</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232633;
+      --border: #2e3245;
+      --text: #e4e6ef;
+      --text-dim: #8b8fa3;
+      --primary: #6c5ce7;
+      --primary-hover: #7e70f0;
+      --danger: #e74c3c;
+      --danger-hover: #c0392b;
+      --success: #2ecc71;
+      --radius: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* --- Auth Screen --- */
+    #auth-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+    #auth-screen h1 { font-size: 2rem; }
+    #auth-screen p { color: var(--text-dim); }
+    .btn-google {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 28px;
+      background: #fff; color: #333;
+      border: none; border-radius: var(--radius);
+      font-size: 1rem; font-weight: 600;
+      cursor: pointer;
+      transition: box-shadow .2s;
+    }
+    .btn-google:hover { box-shadow: 0 4px 16px rgba(108,92,231,.3); }
+    .btn-google svg { width: 20px; height: 20px; }
+
+    /* --- App Shell --- */
+    #app { display: none; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 1.25rem; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .user-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      background: var(--surface2);
+      border-radius: 20px;
+      font-size: .85rem;
+      color: var(--text-dim);
+    }
+    .user-badge img {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+    }
+
+    /* --- Tabs --- */
+    .tabs {
+      display: flex; gap: 0;
+      padding: 0 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      padding: 12px 24px;
+      background: none; border: none;
+      color: var(--text-dim);
+      font-size: .95rem; font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* --- Content Area --- */
+    .content { padding: 24px; max-width: 1100px; margin: 0 auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* --- Toolbar --- */
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .toolbar h2 { font-size: 1.1rem; }
+
+    /* --- Buttons --- */
+    .btn {
+      padding: 8px 18px;
+      border: none; border-radius: var(--radius);
+      font-size: .85rem; font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-outline {
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--text); color: var(--text); }
+    .btn-sm { padding: 5px 12px; font-size: .8rem; }
+
+    /* --- Table --- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 16px;
+      font-size: .9rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(108,92,231,.05); }
+    .actions { display: flex; gap: 6px; }
+    .emoji-cell { font-size: 1.5rem; }
+
+    /* --- Modal --- */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      width: 90%; max-width: 520px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal h3 { margin-bottom: 20px; font-size: 1.15rem; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: .8rem;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9rem;
+      font-family: inherit;
+    }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .modal-actions {
+      display: flex; gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* --- Color Preview --- */
+    .color-preview {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-right: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* --- Toast --- */
+    .toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      padding: 12px 20px;
+      background: var(--success);
+      color: #fff;
+      border-radius: var(--radius);
+      font-size: .9rem; font-weight: 600;
+      z-index: 200;
+      animation: fadeInUp .3s;
+    }
+    .toast.error { background: var(--danger); }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Loading --- */
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: var(--text-dim);
+    }
+
+    /* --- Access Denied --- */
+    #access-denied {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 16px;
+    }
+    #access-denied h2 { color: var(--danger); }
+    #access-denied p { color: var(--text-dim); max-width: 400px; text-align: center; }
+
+    /* --- Stats bar --- */
+    .stats-bar {
+      display: flex; gap: 16px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      flex: 1;
+    }
+    .stat-card .label { font-size: .75rem; color: var(--text-dim); text-transform: uppercase; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+
+    /* --- Word filter --- */
+    .filter-bar {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .filter-bar select {
+      padding: 8px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .85rem;
+    }
+    .filter-bar input {
+      padding: 8px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .85rem;
+      flex: 1;
+      max-width: 260px;
+    }
+
+    /* --- Bulk Import --- */
+    .modal-wide { max-width: 820px; }
+    .import-layout { display: flex; gap: 20px; }
+    .import-left { flex: 1; min-width: 0; }
+    .import-right { flex: 1; min-width: 0; }
+    .import-textarea {
+      width: 100%;
+      min-height: 320px;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: .8rem;
+      line-height: 1.5;
+      resize: vertical;
+      tab-size: 2;
+    }
+    .import-textarea:focus { outline: none; border-color: var(--primary); }
+    .import-textarea.error { border-color: var(--danger); }
+    .import-textarea.valid { border-color: var(--success); }
+    .import-status {
+      margin-top: 8px;
+      font-size: .8rem;
+      min-height: 20px;
+    }
+    .import-status.error { color: var(--danger); }
+    .import-status.success { color: var(--success); }
+    .preview-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: .85rem;
+    }
+    .preview-empty {
+      color: var(--text-dim);
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .preview-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-item:last-child { border-bottom: none; }
+    .preview-item .p-emoji { font-size: 1.3rem; width: 30px; text-align: center; }
+    .preview-item .p-info { flex: 1; min-width: 0; }
+    .preview-item .p-word { font-weight: 600; }
+    .preview-item .p-hint { color: var(--text-dim); font-size: .78rem; }
+    .preview-item .p-cat {
+      font-size: .7rem;
+      padding: 2px 8px;
+      background: var(--surface2);
+      border-radius: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .preview-item.duplicate { opacity: .5; }
+    .preview-item.duplicate .p-word::after {
+      content: ' (exists)';
+      color: var(--danger);
+      font-weight: 400;
+      font-size: .75rem;
+    }
+    .preview-section-title {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--primary);
+      padding: 10px 10px 4px;
+      font-weight: 600;
+    }
+    .preview-summary {
+      padding: 10px;
+      font-size: .8rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      margin-top: 12px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 3px;
+      transition: width .15s;
+      width: 0%;
+    }
+    .sample-toggle {
+      background: none; border: none;
+      color: var(--primary);
+      font-size: .8rem;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      margin-top: 6px;
+    }
+    .format-tabs {
+      display: flex; gap: 0;
+      margin-bottom: 12px;
+    }
+    .format-tab {
+      padding: 6px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: .8rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .format-tab:first-child { border-radius: 6px 0 0 6px; }
+    .format-tab:last-child { border-radius: 0 6px 6px 0; }
+    .format-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .toolbar-btns { display: flex; gap: 8px; }
+
+    /* --- Pagination --- */
+    .table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: 0 0 var(--radius) var(--radius);
+      font-size: .82rem;
+      color: var(--text-dim);
+    }
+    .table-footer-left { display: flex; align-items: center; gap: 10px; }
+    .table-footer-right { display: flex; align-items: center; gap: 6px; }
+    .page-btn {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-size: .82rem;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn:disabled { opacity: .3; cursor: default; }
+    .page-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .per-page-select {
+      padding: 4px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: .82rem;
+    }
+    .sn-cell {
+      width: 48px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: .8rem;
+    }
+
+    /* --- Stats counts --- */
+    .count-bar {
+      display: flex; gap: 12px; align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .count-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: .82rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .count-chip:hover { border-color: var(--primary); color: var(--text); }
+    .count-chip.active {
+      border-color: var(--primary);
+      background: rgba(108,92,231,.12);
+      color: var(--primary);
+    }
+    .count-chip .chip-count {
+      font-weight: 700;
+      color: var(--text);
+      min-width: 18px;
+      text-align: center;
+    }
+    .count-chip.active .chip-count { color: var(--primary); }
+
+    @media (max-width: 700px) {
+      .import-layout { flex-direction: column; }
+      .table-footer { flex-direction: column; gap: 8px; }
+      .filter-bar { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <h1>Learnify Admin</h1>
+    <p>Sign in with Google to manage app content</p>
+    <button class="btn-google" id="btn-sign-in">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Access Denied -->
+  <div id="access-denied">
+    <h2>Access Denied</h2>
+    <p>Your account is not authorized to access the admin panel. Contact the project owner to get admin access.</p>
+    <p id="denied-email" style="color:var(--text-dim);font-size:.85rem;white-space:pre-line;text-align:center;"></p>
+    <button class="btn btn-outline" id="btn-sign-out-denied">Sign Out</button>
+  </div>
+
+  <!-- Main App -->
+  <div id="app">
+    <header>
+      <h1>Learnify Admin</h1>
+      <div class="header-right">
+        <div class="user-badge">
+          <img id="user-photo" src="" alt="">
+          <span id="user-name"></span>
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-sign-out">Sign Out</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="categories">Categories</button>
+      <button class="tab-btn" data-tab="words">Words</button>
+      <button class="tab-btn" data-tab="admins">Admins</button>
+    </div>
+
+    <div class="content">
+      <!-- Categories Tab -->
+      <div class="tab-content active" id="tab-categories">
+        <div class="toolbar">
+          <h2>Categories</h2>
+          <button class="btn btn-primary" id="btn-add-category">+ Add Category</button>
+        </div>
+        <div id="categories-table"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- Words Tab -->
+      <div class="tab-content" id="tab-words">
+        <div class="toolbar">
+          <h2>Words</h2>
+          <div class="toolbar-btns">
+            <button class="btn btn-outline" id="btn-bulk-import">Bulk Import</button>
+            <button class="btn btn-primary" id="btn-add-word">+ Add Word</button>
+          </div>
+        </div>
+        <div id="words-count-bar" class="count-bar"></div>
+        <div class="filter-bar">
+          <select id="word-category-filter">
+            <option value="">All Categories</option>
+          </select>
+          <input type="text" id="word-search" placeholder="Search words...">
+        </div>
+        <div id="words-table"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- Admins Tab -->
+      <div class="tab-content" id="tab-admins">
+        <div class="toolbar">
+          <h2>Admin Users</h2>
+          <button class="btn btn-primary" id="btn-add-admin">+ Add Admin</button>
+        </div>
+        <div id="admins-table"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div class="modal-overlay" id="modal-category">
+    <div class="modal">
+      <h3 id="modal-category-title">Add Category</h3>
+      <form id="form-category">
+        <input type="hidden" id="cat-id">
+        <div class="form-group">
+          <label>ID (lowercase, no spaces)</label>
+          <input type="text" id="cat-id-input" required pattern="[a-z0-9_-]+" placeholder="e.g. colors">
+        </div>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="cat-title" required placeholder="e.g. Colors">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="cat-description" required placeholder="Short description for the category"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Icon Name (Material Icon)</label>
+          <input type="text" id="cat-icon" required placeholder="e.g. palette">
+        </div>
+        <div class="form-group">
+          <label>Accent Color (Hex)</label>
+          <input type="text" id="cat-accent" required placeholder="#FF8A5B" pattern="#[0-9A-Fa-f]{6}">
+        </div>
+        <div class="form-group">
+          <label>Emoji</label>
+          <input type="text" id="cat-emoji" required placeholder="e.g. emoji">
+        </div>
+        <div class="form-group">
+          <label>Sort Order</label>
+          <input type="number" id="cat-sort" required min="1" value="1">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-category')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Word Modal -->
+  <div class="modal-overlay" id="modal-word">
+    <div class="modal">
+      <h3 id="modal-word-title">Add Word</h3>
+      <form id="form-word">
+        <input type="hidden" id="word-id">
+        <div class="form-group">
+          <label>Category</label>
+          <select id="word-category" required></select>
+        </div>
+        <div class="form-group">
+          <label>Answer (the word to pronounce)</label>
+          <input type="text" id="word-answer" required placeholder="e.g. red">
+        </div>
+        <div class="form-group">
+          <label>Emoji</label>
+          <input type="text" id="word-emoji" required placeholder="e.g. emoji">
+        </div>
+        <div class="form-group">
+          <label>Fun Fact</label>
+          <textarea id="word-funfact" required placeholder="A fun fact about this word"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Pronunciation Hint</label>
+          <input type="text" id="word-hint" required placeholder="e.g. RED">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-word')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Modal -->
+  <div class="modal-overlay" id="modal-admin">
+    <div class="modal">
+      <h3>Add Admin User</h3>
+      <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:16px;">Ask your teammate to sign in first. They'll see their UID on the "Access Denied" screen.</p>
+      <form id="form-admin">
+        <div class="form-group">
+          <label>Firebase UID</label>
+          <input type="text" id="admin-uid" required placeholder="e.g. aBcDeFgH123456789">
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="admin-email" required placeholder="teammate@gmail.com">
+        </div>
+        <div class="form-group">
+          <label>Name (optional)</label>
+          <input type="text" id="admin-name" placeholder="Team Member Name">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-admin')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Admin</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bulk Import Modal -->
+  <div class="modal-overlay" id="modal-bulk">
+    <div class="modal modal-wide">
+      <h3>Bulk Import</h3>
+      <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:16px;">
+        Paste JSON data below. Ask ChatGPT: <em>"Generate 20 words for the category <strong>colors</strong> in this JSON format"</em> and paste the result.
+      </p>
+
+      <div class="format-tabs">
+        <button class="format-tab active" data-format="words">Words Only</button>
+        <button class="format-tab" data-format="full">Categories + Words</button>
+      </div>
+
+      <div class="import-layout">
+        <div class="import-left">
+          <label style="font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px;">Paste JSON</label>
+          <textarea class="import-textarea" id="bulk-input" spellcheck="false" placeholder="Paste your JSON here..."></textarea>
+          <div class="import-status" id="bulk-status"></div>
+          <button class="sample-toggle" id="btn-show-sample">Show sample format</button>
+          <div class="progress-bar" id="bulk-progress"><div class="progress-fill" id="bulk-progress-fill"></div></div>
+        </div>
+        <div class="import-right">
+          <label style="font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px;">Preview</label>
+          <div class="preview-box" id="bulk-preview">
+            <div class="preview-empty">Paste JSON on the left to see a preview</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-bulk')">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-bulk-submit" disabled>Import 0 Items</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, where, writeBatch } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
+
+    // ── Firebase Config ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyDP54kCQTf7JWiBVv6WrmqVruXibRxdb0o",
+      authDomain: "learnify-rafik-20260421.firebaseapp.com",
+      projectId: "learnify-rafik-20260421",
+      storageBucket: "learnify-rafik-20260421.firebasestorage.app",
+      messagingSenderId: "862542697682",
+      appId: "1:862542697682:web:0796ea7b8301b3f011890b",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ── State ──
+    let categories = [];
+    let words = [];
+    let admins = [];
+    let currentUser = null;
+
+    // ── Pagination state ──
+    const pageState = {
+      categories: { page: 1, perPage: 10 },
+      words:      { page: 1, perPage: 15 },
+      admins:     { page: 1, perPage: 10 },
+    };
+
+    // ── DOM refs ──
+    const $authScreen = document.getElementById('auth-screen');
+    const $accessDenied = document.getElementById('access-denied');
+    const $app = document.getElementById('app');
+
+    // ── Auth ──
+    document.getElementById('btn-sign-in').addEventListener('click', () => {
+      signInWithPopup(auth, new GoogleAuthProvider());
+    });
+    document.getElementById('btn-sign-out').addEventListener('click', () => signOut(auth));
+    document.getElementById('btn-sign-out-denied').addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        $authScreen.style.display = 'flex';
+        $accessDenied.style.display = 'none';
+        $app.style.display = 'none';
+        return;
+      }
+      currentUser = user;
+
+      // Check if user is admin
+      const isAdmin = await checkAdmin(user);
+      if (!isAdmin) {
+        $authScreen.style.display = 'none';
+        $accessDenied.style.display = 'flex';
+        $app.style.display = 'none';
+        document.getElementById('denied-email').textContent = `Signed in as: ${user.email}\nUID: ${user.uid}\n\nShare this UID with an existing admin to get access.`;
+        return;
+      }
+
+      $authScreen.style.display = 'none';
+      $accessDenied.style.display = 'none';
+      $app.style.display = 'block';
+
+      document.getElementById('user-name').textContent = user.displayName || user.email;
+      document.getElementById('user-photo').src = user.photoURL || '';
+
+      loadAll();
+    });
+
+    async function checkAdmin(user) {
+      try {
+        const snap = await getDoc(doc(db, 'admins', user.uid));
+        return snap.exists();
+      } catch (e) {
+        console.error('Admin check failed:', e);
+        return false;
+      }
+    }
+
+    // ── Data Loading ──
+    async function loadAll() {
+      await Promise.all([loadCategories(), loadWords(), loadAdmins()]);
+    }
+
+    async function loadCategories() {
+      const snap = await getDocs(query(collection(db, 'categories'), orderBy('sort_order')));
+      categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderCategories();
+      populateCategoryFilters();
+    }
+
+    async function loadWords() {
+      const snap = await getDocs(collection(db, 'words'));
+      words = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      words.sort((a, b) => {
+        if (a.category_id !== b.category_id) return a.category_id.localeCompare(b.category_id);
+        return a.answer.localeCompare(b.answer);
+      });
+      renderWords();
+    }
+
+    async function loadAdmins() {
+      try {
+        const snap = await getDocs(collection(db, 'admins'));
+        admins = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAdmins();
+      } catch (e) {
+        console.error('Failed to load admins:', e);
+      }
+    }
+
+    // ── Pagination helper ──
+    function paginate(items, key) {
+      const s = pageState[key];
+      const totalPages = Math.max(1, Math.ceil(items.length / s.perPage));
+      if (s.page > totalPages) s.page = totalPages;
+      const start = (s.page - 1) * s.perPage;
+      const paged = items.slice(start, start + s.perPage);
+      return { paged, start, total: items.length, totalPages, page: s.page, perPage: s.perPage };
+    }
+
+    function renderPaginationFooter(key, total, totalPages, page, perPageOptions) {
+      const s = pageState[key];
+      if (total === 0) return '';
+
+      const startIdx = (page - 1) * s.perPage + 1;
+      const endIdx = Math.min(page * s.perPage, total);
+
+      let pageButtons = '';
+      const maxVisible = 5;
+      let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+      if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+
+      pageButtons += `<button class="page-btn" onclick="goPage('${key}', ${page - 1})" ${page <= 1 ? 'disabled' : ''}>&lsaquo;</button>`;
+      for (let p = startPage; p <= endPage; p++) {
+        pageButtons += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="goPage('${key}', ${p})">${p}</button>`;
+      }
+      pageButtons += `<button class="page-btn" onclick="goPage('${key}', ${page + 1})" ${page >= totalPages ? 'disabled' : ''}>&rsaquo;</button>`;
+
+      const perPageOpts = perPageOptions.map(n =>
+        `<option value="${n}" ${n === s.perPage ? 'selected' : ''}>${n}</option>`
+      ).join('');
+
+      return `
+        <div class="table-footer">
+          <div class="table-footer-left">
+            Showing ${startIdx}-${endIdx} of ${total}
+            &nbsp;&middot;&nbsp;
+            <select class="per-page-select" onchange="changePerPage('${key}', this.value)">${perPageOpts}</select>
+            per page
+          </div>
+          <div class="table-footer-right">${pageButtons}</div>
+        </div>`;
+    }
+
+    window.goPage = (key, page) => {
+      pageState[key].page = page;
+      if (key === 'categories') renderCategories();
+      else if (key === 'words') renderWords();
+      else if (key === 'admins') renderAdmins();
+    };
+
+    window.changePerPage = (key, val) => {
+      pageState[key].perPage = parseInt(val);
+      pageState[key].page = 1;
+      if (key === 'categories') renderCategories();
+      else if (key === 'words') renderWords();
+      else if (key === 'admins') renderAdmins();
+    };
+
+    // ── Render Categories ──
+    function renderCategories() {
+      const container = document.getElementById('categories-table');
+      if (categories.length === 0) {
+        container.innerHTML = '<div class="loading">No categories yet. Add one!</div>';
+        return;
+      }
+
+      const wordCounts = {};
+      words.forEach(w => {
+        wordCounts[w.category_id] = (wordCounts[w.category_id] || 0) + 1;
+      });
+
+      const { paged, start, total, totalPages, page, perPage } = paginate(categories, 'categories');
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th class="sn-cell">#</th>
+              <th>Emoji</th>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Icon</th>
+              <th>Color</th>
+              <th>Words</th>
+              <th>Order</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paged.map((c, i) => `
+              <tr>
+                <td class="sn-cell">${start + i + 1}</td>
+                <td class="emoji-cell">${c.emoji || ''}</td>
+                <td><strong>${esc(c.title)}</strong><br><small style="color:var(--text-dim)">${esc(c.id)}</small></td>
+                <td>${esc(c.description || '')}</td>
+                <td><code>${esc(c.icon_name || '')}</code></td>
+                <td><span class="color-preview" style="background:${c.accent_hex}"></span>${c.accent_hex || ''}</td>
+                <td>${wordCounts[c.id] || 0} / ${c.total_words || 0}</td>
+                <td>${c.sort_order || 0}</td>
+                <td class="actions">
+                  <button class="btn btn-outline btn-sm" onclick="editCategory('${c.id}')">Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.id}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${renderPaginationFooter('categories', total, totalPages, page, [5, 10, 25])}
+      `;
+    }
+
+    // ── Render Words ──
+    function renderWords() {
+      const container = document.getElementById('words-table');
+      const filterCat = document.getElementById('word-category-filter').value;
+      const search = document.getElementById('word-search').value.toLowerCase();
+
+      let filtered = words;
+      if (filterCat) filtered = filtered.filter(w => w.category_id === filterCat);
+      if (search) filtered = filtered.filter(w => w.answer.toLowerCase().includes(search));
+
+      // Render count chips
+      renderWordCountBar(filterCat);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="loading">No words found.</div>';
+        return;
+      }
+
+      const catMap = {};
+      categories.forEach(c => catMap[c.id] = c);
+
+      // Reset page to 1 when filters change if current page is out of range
+      const totalPages = Math.max(1, Math.ceil(filtered.length / pageState.words.perPage));
+      if (pageState.words.page > totalPages) pageState.words.page = 1;
+
+      const { paged, start, total, page, perPage } = paginate(filtered, 'words');
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th class="sn-cell">#</th>
+              <th>Emoji</th>
+              <th>Answer</th>
+              <th>Category</th>
+              <th>Pronunciation</th>
+              <th>Fun Fact</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paged.map((w, i) => `
+              <tr>
+                <td class="sn-cell">${start + i + 1}</td>
+                <td class="emoji-cell">${w.emoji || ''}</td>
+                <td><strong>${esc(w.answer)}</strong><br><small style="color:var(--text-dim)">${esc(w.id)}</small></td>
+                <td>${catMap[w.category_id]?.emoji || ''} ${esc(catMap[w.category_id]?.title || w.category_id)}</td>
+                <td><code>${esc(w.pronunciation_hint || '')}</code></td>
+                <td style="max-width:220px;">${esc(w.fun_fact || '')}</td>
+                <td class="actions">
+                  <button class="btn btn-outline btn-sm" onclick="editWord('${w.id}')">Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteWord('${w.id}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${renderPaginationFooter('words', total, totalPages, page, [10, 15, 25, 50])}
+      `;
+    }
+
+    // ── Word Count Chips ──
+    function renderWordCountBar(activeFilter) {
+      const bar = document.getElementById('words-count-bar');
+      const wordCounts = {};
+      words.forEach(w => {
+        wordCounts[w.category_id] = (wordCounts[w.category_id] || 0) + 1;
+      });
+
+      let html = `<div class="count-chip ${!activeFilter ? 'active' : ''}" onclick="setWordFilter('')">
+        All <span class="chip-count">${words.length}</span>
+      </div>`;
+
+      categories.forEach(c => {
+        const count = wordCounts[c.id] || 0;
+        const isActive = activeFilter === c.id;
+        html += `<div class="count-chip ${isActive ? 'active' : ''}" onclick="setWordFilter('${c.id}')">
+          ${c.emoji} ${esc(c.title)} <span class="chip-count">${count}</span>
+        </div>`;
+      });
+
+      bar.innerHTML = html;
+    }
+
+    window.setWordFilter = (catId) => {
+      document.getElementById('word-category-filter').value = catId;
+      pageState.words.page = 1;
+      renderWords();
+    };
+
+    // ── Render Admins ──
+    function renderAdmins() {
+      const container = document.getElementById('admins-table');
+      if (admins.length === 0) {
+        container.innerHTML = '<div class="loading">No admins found.</div>';
+        return;
+      }
+
+      const { paged, start, total, totalPages, page } = paginate(admins, 'admins');
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th class="sn-cell">#</th>
+              <th>Email</th>
+              <th>Name</th>
+              <th>UID</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paged.map((a, i) => `
+              <tr>
+                <td class="sn-cell">${start + i + 1}</td>
+                <td>${esc(a.email || '')}</td>
+                <td>${esc(a.name || '-')}</td>
+                <td><small style="color:var(--text-dim)">${esc(a.id)}</small></td>
+                <td class="actions">
+                  ${a.email?.toLowerCase() === currentUser?.email?.toLowerCase()
+                    ? '<span style="color:var(--text-dim);font-size:.8rem">You</span>'
+                    : `<button class="btn btn-danger btn-sm" onclick="deleteAdmin('${a.id}')">Remove</button>`
+                  }
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${renderPaginationFooter('admins', total, totalPages, page, [5, 10, 25])}
+      `;
+    }
+
+    // ── Category Filters ──
+    function populateCategoryFilters() {
+      const filter = document.getElementById('word-category-filter');
+      const select = document.getElementById('word-category');
+
+      const opts = categories.map(c => `<option value="${c.id}">${c.emoji} ${esc(c.title)}</option>`).join('');
+
+      filter.innerHTML = `<option value="">All Categories</option>${opts}`;
+      select.innerHTML = opts;
+    }
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // ── Modals ──
+    window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.remove('open');
+      });
+    });
+
+    // ── Add Category ──
+    document.getElementById('btn-add-category').addEventListener('click', () => {
+      document.getElementById('modal-category-title').textContent = 'Add Category';
+      document.getElementById('form-category').reset();
+      document.getElementById('cat-id').value = '';
+      document.getElementById('cat-id-input').disabled = false;
+      document.getElementById('cat-sort').value = categories.length + 1;
+      document.getElementById('modal-category').classList.add('open');
+    });
+
+    window.editCategory = (id) => {
+      const cat = categories.find(c => c.id === id);
+      if (!cat) return;
+      document.getElementById('modal-category-title').textContent = 'Edit Category';
+      document.getElementById('cat-id').value = cat.id;
+      document.getElementById('cat-id-input').value = cat.id;
+      document.getElementById('cat-id-input').disabled = true;
+      document.getElementById('cat-title').value = cat.title || '';
+      document.getElementById('cat-description').value = cat.description || '';
+      document.getElementById('cat-icon').value = cat.icon_name || '';
+      document.getElementById('cat-accent').value = cat.accent_hex || '';
+      document.getElementById('cat-emoji').value = cat.emoji || '';
+      document.getElementById('cat-sort').value = cat.sort_order || 1;
+      document.getElementById('modal-category').classList.add('open');
+    };
+
+    document.getElementById('form-category').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const existingId = document.getElementById('cat-id').value;
+      const id = existingId || document.getElementById('cat-id-input').value.trim();
+      if (!id) return;
+
+      const wordCount = words.filter(w => w.category_id === id).length;
+
+      const data = {
+        title: document.getElementById('cat-title').value.trim(),
+        description: document.getElementById('cat-description').value.trim(),
+        icon_name: document.getElementById('cat-icon').value.trim(),
+        accent_hex: document.getElementById('cat-accent').value.trim(),
+        emoji: document.getElementById('cat-emoji').value.trim(),
+        image_url: null,
+        total_words: wordCount || 0,
+        sort_order: parseInt(document.getElementById('cat-sort').value) || 1,
+      };
+
+      try {
+        await setDoc(doc(db, 'categories', id), data);
+        toast(`Category "${data.title}" saved!`);
+        closeModal('modal-category');
+        await loadCategories();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    });
+
+    window.deleteCategory = async (id) => {
+      const cat = categories.find(c => c.id === id);
+      const catWords = words.filter(w => w.category_id === id);
+      const msg = catWords.length > 0
+        ? `Delete "${cat.title}" and its ${catWords.length} words? This cannot be undone.`
+        : `Delete "${cat.title}"? This cannot be undone.`;
+
+      if (!confirm(msg)) return;
+      try {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'categories', id));
+        catWords.forEach(w => batch.delete(doc(db, 'words', w.id)));
+        await batch.commit();
+        toast(`Category "${cat.title}" deleted.`);
+        await loadAll();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    };
+
+    // ── Add Word ──
+    document.getElementById('btn-add-word').addEventListener('click', () => {
+      if (categories.length === 0) {
+        toast('Add a category first!', true);
+        return;
+      }
+      document.getElementById('modal-word-title').textContent = 'Add Word';
+      document.getElementById('form-word').reset();
+      document.getElementById('word-id').value = '';
+      const filterVal = document.getElementById('word-category-filter').value;
+      if (filterVal) document.getElementById('word-category').value = filterVal;
+      document.getElementById('modal-word').classList.add('open');
+    });
+
+    window.editWord = (id) => {
+      const w = words.find(x => x.id === id);
+      if (!w) return;
+      document.getElementById('modal-word-title').textContent = 'Edit Word';
+      document.getElementById('word-id').value = w.id;
+      document.getElementById('word-category').value = w.category_id;
+      document.getElementById('word-answer').value = w.answer || '';
+      document.getElementById('word-emoji').value = w.emoji || '';
+      document.getElementById('word-funfact').value = w.fun_fact || '';
+      document.getElementById('word-hint').value = w.pronunciation_hint || '';
+      document.getElementById('modal-word').classList.add('open');
+    };
+
+    document.getElementById('form-word').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const existingId = document.getElementById('word-id').value;
+      const categoryId = document.getElementById('word-category').value;
+      const answer = document.getElementById('word-answer').value.trim().toLowerCase();
+      const cat = categories.find(c => c.id === categoryId);
+      const prefix = categoryId.replace(/s$/, ''); // "fruits" -> "fruit"
+      const id = existingId || `${prefix}-${answer.replace(/\s+/g, '-')}`;
+
+      const data = {
+        category_id: categoryId,
+        answer: answer,
+        emoji: document.getElementById('word-emoji').value.trim(),
+        fun_fact: document.getElementById('word-funfact').value.trim(),
+        pronunciation_hint: document.getElementById('word-hint').value.trim(),
+        image_url: null,
+      };
+
+      try {
+        await setDoc(doc(db, 'words', id), data);
+
+        // Update category total_words count
+        const newCount = words.filter(w => w.category_id === categoryId && w.id !== id).length + 1;
+        if (cat) {
+          await setDoc(doc(db, 'categories', categoryId), { total_words: newCount }, { merge: true });
+        }
+
+        toast(`Word "${answer}" saved!`);
+        closeModal('modal-word');
+        await loadAll();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    });
+
+    window.deleteWord = async (id) => {
+      const w = words.find(x => x.id === id);
+      if (!confirm(`Delete word "${w.answer}"?`)) return;
+      try {
+        await deleteDoc(doc(db, 'words', id));
+
+        // Update category total_words count
+        const remaining = words.filter(x => x.category_id === w.category_id && x.id !== id).length;
+        await setDoc(doc(db, 'categories', w.category_id), { total_words: remaining }, { merge: true });
+
+        toast(`Word "${w.answer}" deleted.`);
+        await loadAll();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    };
+
+    // ── Admins ──
+    document.getElementById('btn-add-admin').addEventListener('click', () => {
+      document.getElementById('form-admin').reset();
+      document.getElementById('modal-admin').classList.add('open');
+    });
+
+    document.getElementById('form-admin').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const uid = document.getElementById('admin-uid').value.trim();
+      const email = document.getElementById('admin-email').value.trim();
+      const name = document.getElementById('admin-name').value.trim();
+
+      if (!uid) { toast('UID is required', true); return; }
+
+      try {
+        await setDoc(doc(db, 'admins', uid), {
+          email: email,
+          name: name || null,
+          added_by: currentUser.email,
+          added_at: new Date().toISOString(),
+        });
+        toast(`Admin "${email}" added!`);
+        closeModal('modal-admin');
+        await loadAdmins();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    });
+
+    window.deleteAdmin = async (id) => {
+      const admin = admins.find(a => a.id === id);
+      if (!confirm(`Remove admin "${admin?.email || id}"?`)) return;
+      try {
+        await deleteDoc(doc(db, 'admins', id));
+        toast('Admin removed.');
+        await loadAdmins();
+      } catch (err) {
+        toast('Error: ' + err.message, true);
+      }
+    };
+
+    // ── Word Filters ──
+    document.getElementById('word-category-filter').addEventListener('change', () => {
+      pageState.words.page = 1;
+      renderWords();
+    });
+    document.getElementById('word-search').addEventListener('input', () => {
+      pageState.words.page = 1;
+      renderWords();
+    });
+
+    // ── Toast ──
+    function toast(msg, isError = false) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (isError ? ' error' : '');
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    // ── Helpers ──
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ── Bulk Import ──
+    let bulkFormat = 'words'; // 'words' or 'full'
+    let parsedBulk = null;    // { categories: [], words: [] }
+
+    const SAMPLE_WORDS = `[
+  {
+    "category_id": "fruits",
+    "answer": "kiwi",
+    "emoji": "🥝",
+    "fun_fact": "Kiwis have more vitamin C than oranges.",
+    "pronunciation_hint": "KEE-wee"
+  },
+  {
+    "category_id": "fruits",
+    "answer": "lemon",
+    "emoji": "🍋",
+    "fun_fact": "Lemons can power a small light bulb.",
+    "pronunciation_hint": "LEH-mun"
+  }
+]`;
+
+    const SAMPLE_FULL = `{
+  "categories": [
+    {
+      "id": "colors",
+      "title": "Colors",
+      "description": "Say each color before time runs out.",
+      "icon_name": "palette",
+      "accent_hex": "#E91E63",
+      "emoji": "🎨",
+      "sort_order": 7
+    }
+  ],
+  "words": [
+    {
+      "category_id": "colors",
+      "answer": "red",
+      "emoji": "🔴",
+      "fun_fact": "Red is the first color a baby can see.",
+      "pronunciation_hint": "RED"
+    },
+    {
+      "category_id": "colors",
+      "answer": "blue",
+      "emoji": "🔵",
+      "fun_fact": "Blue is the most popular favorite color.",
+      "pronunciation_hint": "BLOO"
+    }
+  ]
+}`;
+
+    // Format tabs
+    document.querySelectorAll('.format-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        bulkFormat = tab.dataset.format;
+        parseBulkInput();
+      });
+    });
+
+    // Show sample
+    document.getElementById('btn-show-sample').addEventListener('click', () => {
+      const textarea = document.getElementById('bulk-input');
+      textarea.value = bulkFormat === 'words' ? SAMPLE_WORDS : SAMPLE_FULL;
+      parseBulkInput();
+    });
+
+    // Open modal
+    document.getElementById('btn-bulk-import').addEventListener('click', () => {
+      document.getElementById('bulk-input').value = '';
+      document.getElementById('bulk-status').textContent = '';
+      document.getElementById('bulk-status').className = 'import-status';
+      document.getElementById('bulk-input').className = 'import-textarea';
+      document.getElementById('bulk-preview').innerHTML = '<div class="preview-empty">Paste JSON on the left to see a preview</div>';
+      document.getElementById('btn-bulk-submit').disabled = true;
+      document.getElementById('btn-bulk-submit').textContent = 'Import 0 Items';
+      document.getElementById('bulk-progress').classList.remove('active');
+      parsedBulk = null;
+      document.getElementById('modal-bulk').classList.add('open');
+    });
+
+    // Parse on input
+    document.getElementById('bulk-input').addEventListener('input', parseBulkInput);
+
+    function parseBulkInput() {
+      const raw = document.getElementById('bulk-input').value.trim();
+      const $status = document.getElementById('bulk-status');
+      const $input = document.getElementById('bulk-input');
+      const $preview = document.getElementById('bulk-preview');
+      const $submit = document.getElementById('btn-bulk-submit');
+
+      parsedBulk = null;
+      $submit.disabled = true;
+      $submit.textContent = 'Import 0 Items';
+
+      if (!raw) {
+        $status.textContent = '';
+        $status.className = 'import-status';
+        $input.className = 'import-textarea';
+        $preview.innerHTML = '<div class="preview-empty">Paste JSON on the left to see a preview</div>';
+        return;
+      }
+
+      // Try to extract JSON from markdown code blocks
+      let jsonStr = raw;
+      const codeBlockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      }
+
+      let data;
+      try {
+        data = JSON.parse(jsonStr);
+      } catch (e) {
+        $status.textContent = 'Invalid JSON: ' + e.message;
+        $status.className = 'import-status error';
+        $input.className = 'import-textarea error';
+        $preview.innerHTML = '<div class="preview-empty" style="color:var(--danger)">Fix the JSON errors to see preview</div>';
+        return;
+      }
+
+      // Normalize data
+      let newCategories = [];
+      let newWords = [];
+
+      if (Array.isArray(data)) {
+        // Words-only array
+        newWords = data;
+      } else if (data && typeof data === 'object') {
+        if (data.categories) newCategories = Array.isArray(data.categories) ? data.categories : [];
+        if (data.words) newWords = Array.isArray(data.words) ? data.words : [];
+        if (!data.categories && !data.words) {
+          // Maybe a single word object
+          if (data.answer && data.category_id) {
+            newWords = [data];
+          }
+        }
+      }
+
+      // Validate words
+      const errors = [];
+      const validWords = [];
+      const existingWordIds = new Set(words.map(w => w.id));
+      const existingCatIds = new Set(categories.map(c => c.id));
+      const newCatIds = new Set(newCategories.map(c => c.id));
+
+      newWords.forEach((w, i) => {
+        if (!w.answer) { errors.push(`Word ${i + 1}: missing "answer"`); return; }
+        if (!w.category_id) { errors.push(`Word ${i + 1} (${w.answer}): missing "category_id"`); return; }
+
+        const prefix = w.category_id.replace(/s$/, '');
+        const id = w.id || `${prefix}-${w.answer.toLowerCase().replace(/\s+/g, '-')}`;
+        validWords.push({
+          id,
+          category_id: w.category_id,
+          answer: w.answer.toLowerCase().trim(),
+          emoji: w.emoji || '❓',
+          fun_fact: w.fun_fact || w.funFact || '',
+          pronunciation_hint: w.pronunciation_hint || w.pronunciationHint || '',
+          image_url: null,
+          _duplicate: existingWordIds.has(id),
+          _unknownCat: !existingCatIds.has(w.category_id) && !newCatIds.has(w.category_id),
+        });
+      });
+
+      // Validate categories
+      const validCategories = [];
+      newCategories.forEach((c, i) => {
+        if (!c.id) { errors.push(`Category ${i + 1}: missing "id"`); return; }
+        if (!c.title) { errors.push(`Category ${i + 1}: missing "title"`); return; }
+        validCategories.push({
+          id: c.id,
+          title: c.title,
+          description: c.description || '',
+          icon_name: c.icon_name || c.iconName || 'category',
+          accent_hex: c.accent_hex || c.accentHex || '#6c5ce7',
+          emoji: c.emoji || '📦',
+          image_url: null,
+          sort_order: c.sort_order || c.sortOrder || categories.length + validCategories.length + 1,
+        });
+      });
+
+      const newOnly = validWords.filter(w => !w._duplicate);
+      const duplicates = validWords.filter(w => w._duplicate);
+      const unknownCat = validWords.filter(w => w._unknownCat);
+
+      // Build status
+      if (errors.length > 0) {
+        $status.innerHTML = errors.slice(0, 3).join('<br>') + (errors.length > 3 ? `<br>...and ${errors.length - 3} more` : '');
+        $status.className = 'import-status error';
+        $input.className = 'import-textarea error';
+      } else {
+        const parts = [];
+        if (validCategories.length) parts.push(`${validCategories.length} categor${validCategories.length === 1 ? 'y' : 'ies'}`);
+        parts.push(`${newOnly.length} new word${newOnly.length === 1 ? '' : 's'}`);
+        if (duplicates.length) parts.push(`${duplicates.length} duplicate${duplicates.length === 1 ? '' : 's'} (will skip)`);
+        if (unknownCat.length) parts.push(`${unknownCat.length} with unknown category`);
+        $status.textContent = parts.join(' · ');
+        $status.className = 'import-status success';
+        $input.className = 'import-textarea valid';
+      }
+
+      // Build preview
+      let previewHtml = '';
+
+      if (validCategories.length) {
+        previewHtml += '<div class="preview-section-title">Categories</div>';
+        validCategories.forEach(c => {
+          previewHtml += `
+            <div class="preview-item">
+              <span class="p-emoji">${c.emoji}</span>
+              <div class="p-info">
+                <span class="p-word">${esc(c.title)}</span>
+                <div class="p-hint">${esc(c.description)}</div>
+              </div>
+              <span class="p-cat">${esc(c.id)}</span>
+            </div>`;
+        });
+      }
+
+      if (validWords.length) {
+        previewHtml += '<div class="preview-section-title">Words</div>';
+        validWords.forEach(w => {
+          const cls = w._duplicate ? 'preview-item duplicate' : 'preview-item';
+          const catLabel = existingCatIds.has(w.category_id)
+            ? (categories.find(c => c.id === w.category_id)?.title || w.category_id)
+            : (validCategories.find(c => c.id === w.category_id)?.title || w.category_id);
+          previewHtml += `
+            <div class="${cls}">
+              <span class="p-emoji">${w.emoji}</span>
+              <div class="p-info">
+                <span class="p-word">${esc(w.answer)}</span>
+                <div class="p-hint">${esc(w.pronunciation_hint)}</div>
+              </div>
+              <span class="p-cat">${esc(catLabel)}</span>
+            </div>`;
+        });
+      }
+
+      if (validWords.length === 0 && validCategories.length === 0) {
+        previewHtml = '<div class="preview-empty">No valid items found</div>';
+      } else {
+        const total = newOnly.length + validCategories.length;
+        previewHtml += `<div class="preview-summary">${total} item${total === 1 ? '' : 's'} will be imported${duplicates.length ? `, ${duplicates.length} skipped` : ''}</div>`;
+      }
+
+      $preview.innerHTML = previewHtml;
+
+      // Store parsed data
+      const importCount = newOnly.length + validCategories.length;
+      if (importCount > 0 && errors.length === 0) {
+        parsedBulk = { categories: validCategories, words: newOnly };
+        $submit.disabled = false;
+        $submit.textContent = `Import ${importCount} Item${importCount === 1 ? '' : 's'}`;
+      }
+    }
+
+    // Submit bulk import
+    document.getElementById('btn-bulk-submit').addEventListener('click', async () => {
+      if (!parsedBulk) return;
+
+      const $submit = document.getElementById('btn-bulk-submit');
+      const $progress = document.getElementById('bulk-progress');
+      const $fill = document.getElementById('bulk-progress-fill');
+
+      $submit.disabled = true;
+      $submit.textContent = 'Importing...';
+      $progress.classList.add('active');
+      $fill.style.width = '0%';
+
+      const totalItems = parsedBulk.categories.length + parsedBulk.words.length;
+      let completed = 0;
+
+      try {
+        // Firestore batches support max 500 operations
+        // Split into batches of 400 to be safe
+        const allOps = [];
+
+        // Categories first
+        parsedBulk.categories.forEach(c => {
+          allOps.push({ collection: 'categories', id: c.id, data: {
+            title: c.title,
+            description: c.description,
+            icon_name: c.icon_name,
+            accent_hex: c.accent_hex,
+            emoji: c.emoji,
+            image_url: null,
+            total_words: 0,
+            sort_order: c.sort_order,
+          }});
+        });
+
+        // Then words
+        parsedBulk.words.forEach(w => {
+          const { _duplicate, _unknownCat, id, ...data } = w;
+          allOps.push({ collection: 'words', id, data });
+        });
+
+        // Execute in batches of 400
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
+          const chunk = allOps.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+
+          chunk.forEach(op => {
+            batch.set(doc(db, op.collection, op.id), op.data);
+          });
+
+          await batch.commit();
+          completed += chunk.length;
+          $fill.style.width = `${Math.round((completed / totalItems) * 100)}%`;
+        }
+
+        // Update total_words for affected categories
+        const affectedCats = new Set(parsedBulk.words.map(w => w.category_id));
+        // Reload words to get accurate count
+        const wordSnap = await getDocs(collection(db, 'words'));
+        const allWords = wordSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const updateBatch = writeBatch(db);
+        affectedCats.forEach(catId => {
+          const count = allWords.filter(w => w.category_id === catId).length;
+          updateBatch.set(doc(db, 'categories', catId), { total_words: count }, { merge: true });
+        });
+        await updateBatch.commit();
+
+        $fill.style.width = '100%';
+        toast(`Imported ${totalItems} item${totalItems === 1 ? '' : 's'} successfully!`);
+        closeModal('modal-bulk');
+        await loadAll();
+      } catch (err) {
+        toast('Import failed: ' + err.message, true);
+        $submit.disabled = false;
+        $submit.textContent = `Retry Import`;
+      }
+    });
+
+    // ── Expose for inline handlers ──
+    window.editCategory = window.editCategory;
+    window.deleteCategory = window.deleteCategory;
+    window.editWord = window.editWord;
+    window.deleteWord = window.deleteWord;
+    window.deleteAdmin = window.deleteAdmin;
+    window.closeModal = window.closeModal;
+  </script>
+</body>
+</html>

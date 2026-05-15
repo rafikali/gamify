@@ -8,7 +8,7 @@
       "accent_hex": "#FF8A5B",
       "emoji": "🍎",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 1
     },
     {
@@ -19,7 +19,7 @@
       "accent_hex": "#57C84D",
       "emoji": "🥕",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 2
     },
     {
@@ -30,7 +30,7 @@
       "accent_hex": "#5B4BDB",
       "emoji": "🧑‍🚒",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 3
     },
     {
@@ -41,7 +41,7 @@
       "accent_hex": "#FFB703",
       "emoji": "🦁",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 4
     },
     {
@@ -52,7 +52,7 @@
       "accent_hex": "#20A4F3",
       "emoji": "☀️",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 5
     },
     {
@@ -63,7 +63,7 @@
       "accent_hex": "#F25F5C",
       "emoji": "🚗",
       "image_url": null,
-      "total_words": 3,
+      "total_words": 10,
       "sort_order": 6
     }
   ],
@@ -96,6 +96,70 @@
       "pronunciation_hint": "OR-inj"
     },
     {
+      "id": "fruit-grape",
+      "category_id": "fruits",
+      "answer": "grape",
+      "emoji": "🍇",
+      "image_url": null,
+      "fun_fact": "Grapes can be red, green, or purple.",
+      "pronunciation_hint": "GRAYP"
+    },
+    {
+      "id": "fruit-strawberry",
+      "category_id": "fruits",
+      "answer": "strawberry",
+      "emoji": "🍓",
+      "image_url": null,
+      "fun_fact": "Strawberries have seeds on the outside.",
+      "pronunciation_hint": "STRAW-beh-ree"
+    },
+    {
+      "id": "fruit-watermelon",
+      "category_id": "fruits",
+      "answer": "watermelon",
+      "emoji": "🍉",
+      "image_url": null,
+      "fun_fact": "Watermelons are over 90 percent water.",
+      "pronunciation_hint": "WAW-ter-meh-lun"
+    },
+    {
+      "id": "fruit-pineapple",
+      "category_id": "fruits",
+      "answer": "pineapple",
+      "emoji": "🍍",
+      "image_url": null,
+      "fun_fact": "A pineapple takes two years to grow.",
+      "pronunciation_hint": "PYN-ap-uhl"
+    },
+    {
+      "id": "fruit-mango",
+      "category_id": "fruits",
+      "answer": "mango",
+      "emoji": "🥭",
+      "image_url": null,
+      "fun_fact": "Mangoes are called the king of fruits.",
+      "pronunciation_hint": "MANG-oh"
+    },
+    {
+      "id": "fruit-peach",
+      "category_id": "fruits",
+      "answer": "peach",
+      "emoji": "🍑",
+      "image_url": null,
+      "fun_fact": "Peaches have soft fuzzy skin.",
+      "pronunciation_hint": "PEECH"
+    },
+    {
+      "id": "fruit-cherry",
+      "category_id": "fruits",
+      "answer": "cherry",
+      "emoji": "🍒",
+      "image_url": null,
+      "fun_fact": "Cherries often grow in pairs on one stem.",
+      "pronunciation_hint": "CHEH-ree"
+    },
+
+    {
       "id": "veg-carrot",
       "category_id": "vegetables",
       "answer": "carrot",
@@ -122,6 +186,70 @@
       "fun_fact": "Bell peppers start green, then change color.",
       "pronunciation_hint": "PEH-per"
     },
+    {
+      "id": "veg-tomato",
+      "category_id": "vegetables",
+      "answer": "tomato",
+      "emoji": "🍅",
+      "image_url": null,
+      "fun_fact": "Tomatoes are actually a fruit but used as a vegetable.",
+      "pronunciation_hint": "tuh-MAY-toh"
+    },
+    {
+      "id": "veg-corn",
+      "category_id": "vegetables",
+      "answer": "corn",
+      "emoji": "🌽",
+      "image_url": null,
+      "fun_fact": "Each ear of corn has about 800 kernels.",
+      "pronunciation_hint": "KORN"
+    },
+    {
+      "id": "veg-potato",
+      "category_id": "vegetables",
+      "answer": "potato",
+      "emoji": "🥔",
+      "image_url": null,
+      "fun_fact": "Potatoes were the first vegetable grown in space.",
+      "pronunciation_hint": "puh-TAY-toh"
+    },
+    {
+      "id": "veg-onion",
+      "category_id": "vegetables",
+      "answer": "onion",
+      "emoji": "🧅",
+      "image_url": null,
+      "fun_fact": "Onions make you cry because they release a gas.",
+      "pronunciation_hint": "UN-yun"
+    },
+    {
+      "id": "veg-garlic",
+      "category_id": "vegetables",
+      "answer": "garlic",
+      "emoji": "🧄",
+      "image_url": null,
+      "fun_fact": "Garlic has been used as medicine for centuries.",
+      "pronunciation_hint": "GAR-lik"
+    },
+    {
+      "id": "veg-mushroom",
+      "category_id": "vegetables",
+      "answer": "mushroom",
+      "emoji": "🍄",
+      "image_url": null,
+      "fun_fact": "Mushrooms grow in dark and damp places.",
+      "pronunciation_hint": "MUSH-room"
+    },
+    {
+      "id": "veg-lettuce",
+      "category_id": "vegetables",
+      "answer": "lettuce",
+      "emoji": "🥬",
+      "image_url": null,
+      "fun_fact": "Lettuce is mostly made of water.",
+      "pronunciation_hint": "LEH-tis"
+    },
+
     {
       "id": "job-teacher",
       "category_id": "jobs",
@@ -150,6 +278,70 @@
       "pronunciation_hint": "FIRE-fy-ter"
     },
     {
+      "id": "job-police",
+      "category_id": "jobs",
+      "answer": "police",
+      "emoji": "👮",
+      "image_url": null,
+      "fun_fact": "Police officers help keep communities safe.",
+      "pronunciation_hint": "puh-LEES"
+    },
+    {
+      "id": "job-chef",
+      "category_id": "jobs",
+      "answer": "chef",
+      "emoji": "🧑‍🍳",
+      "image_url": null,
+      "fun_fact": "Chefs create delicious meals in restaurants.",
+      "pronunciation_hint": "SHEF"
+    },
+    {
+      "id": "job-pilot",
+      "category_id": "jobs",
+      "answer": "pilot",
+      "emoji": "🧑‍✈️",
+      "image_url": null,
+      "fun_fact": "Pilots fly airplanes across the world.",
+      "pronunciation_hint": "PYE-lut"
+    },
+    {
+      "id": "job-farmer",
+      "category_id": "jobs",
+      "answer": "farmer",
+      "emoji": "🧑‍🌾",
+      "image_url": null,
+      "fun_fact": "Farmers grow the food we eat every day.",
+      "pronunciation_hint": "FAR-mur"
+    },
+    {
+      "id": "job-nurse",
+      "category_id": "jobs",
+      "answer": "nurse",
+      "emoji": "🧑‍⚕️",
+      "image_url": null,
+      "fun_fact": "Nurses care for patients in hospitals.",
+      "pronunciation_hint": "NURS"
+    },
+    {
+      "id": "job-artist",
+      "category_id": "jobs",
+      "answer": "artist",
+      "emoji": "🧑‍🎨",
+      "image_url": null,
+      "fun_fact": "Artists express ideas through painting and drawing.",
+      "pronunciation_hint": "AR-tist"
+    },
+    {
+      "id": "job-astronaut",
+      "category_id": "jobs",
+      "answer": "astronaut",
+      "emoji": "🧑‍🚀",
+      "image_url": null,
+      "fun_fact": "Astronauts train for years before going to space.",
+      "pronunciation_hint": "AS-truh-nawt"
+    },
+
+    {
       "id": "animal-lion",
       "category_id": "animals",
       "answer": "lion",
@@ -176,6 +368,70 @@
       "fun_fact": "Every zebra has unique stripes.",
       "pronunciation_hint": "ZEE-bruh"
     },
+    {
+      "id": "animal-giraffe",
+      "category_id": "animals",
+      "answer": "giraffe",
+      "emoji": "🦒",
+      "image_url": null,
+      "fun_fact": "Giraffes are the tallest animals on Earth.",
+      "pronunciation_hint": "juh-RAF"
+    },
+    {
+      "id": "animal-monkey",
+      "category_id": "animals",
+      "answer": "monkey",
+      "emoji": "🐒",
+      "image_url": null,
+      "fun_fact": "Monkeys use their tails to hang from trees.",
+      "pronunciation_hint": "MUNG-kee"
+    },
+    {
+      "id": "animal-dolphin",
+      "category_id": "animals",
+      "answer": "dolphin",
+      "emoji": "🐬",
+      "image_url": null,
+      "fun_fact": "Dolphins are one of the smartest animals.",
+      "pronunciation_hint": "DOL-fin"
+    },
+    {
+      "id": "animal-penguin",
+      "category_id": "animals",
+      "answer": "penguin",
+      "emoji": "🐧",
+      "image_url": null,
+      "fun_fact": "Penguins cannot fly but they swim very fast.",
+      "pronunciation_hint": "PEN-gwin"
+    },
+    {
+      "id": "animal-tiger",
+      "category_id": "animals",
+      "answer": "tiger",
+      "emoji": "🐯",
+      "image_url": null,
+      "fun_fact": "Tigers have striped skin under their fur.",
+      "pronunciation_hint": "TYE-gur"
+    },
+    {
+      "id": "animal-rabbit",
+      "category_id": "animals",
+      "answer": "rabbit",
+      "emoji": "🐰",
+      "image_url": null,
+      "fun_fact": "Rabbits can hop very fast to escape danger.",
+      "pronunciation_hint": "RAB-it"
+    },
+    {
+      "id": "animal-turtle",
+      "category_id": "animals",
+      "answer": "turtle",
+      "emoji": "🐢",
+      "image_url": null,
+      "fun_fact": "Some turtles can live over 100 years.",
+      "pronunciation_hint": "TUR-tuhl"
+    },
+
     {
       "id": "daily-book",
       "category_id": "daily",
@@ -204,6 +460,70 @@
       "pronunciation_hint": "SUN"
     },
     {
+      "id": "daily-clock",
+      "category_id": "daily",
+      "answer": "clock",
+      "emoji": "🕐",
+      "image_url": null,
+      "fun_fact": "Clocks help us keep track of time all day.",
+      "pronunciation_hint": "KLOK"
+    },
+    {
+      "id": "daily-phone",
+      "category_id": "daily",
+      "answer": "phone",
+      "emoji": "📱",
+      "image_url": null,
+      "fun_fact": "Phones let people talk from anywhere in the world.",
+      "pronunciation_hint": "FOHN"
+    },
+    {
+      "id": "daily-chair",
+      "category_id": "daily",
+      "answer": "chair",
+      "emoji": "🪑",
+      "image_url": null,
+      "fun_fact": "The oldest known chair is over 5000 years old.",
+      "pronunciation_hint": "CHAIR"
+    },
+    {
+      "id": "daily-pencil",
+      "category_id": "daily",
+      "answer": "pencil",
+      "emoji": "✏️",
+      "image_url": null,
+      "fun_fact": "A single pencil can draw a line 35 miles long.",
+      "pronunciation_hint": "PEN-suhl"
+    },
+    {
+      "id": "daily-key",
+      "category_id": "daily",
+      "answer": "key",
+      "emoji": "🔑",
+      "image_url": null,
+      "fun_fact": "Keys have been used to lock doors for thousands of years.",
+      "pronunciation_hint": "KEE"
+    },
+    {
+      "id": "daily-umbrella",
+      "category_id": "daily",
+      "answer": "umbrella",
+      "emoji": "☂️",
+      "image_url": null,
+      "fun_fact": "Umbrellas were first used to block the sun, not rain.",
+      "pronunciation_hint": "um-BREH-luh"
+    },
+    {
+      "id": "daily-mirror",
+      "category_id": "daily",
+      "answer": "mirror",
+      "emoji": "🪞",
+      "image_url": null,
+      "fun_fact": "Mirrors reflect light to show your image.",
+      "pronunciation_hint": "MEER-ur"
+    },
+
+    {
       "id": "vehicle-car",
       "category_id": "vehicles",
       "answer": "car",
@@ -229,6 +549,69 @@
       "image_url": null,
       "fun_fact": "Planes fly high above the clouds.",
       "pronunciation_hint": "PLAYN"
+    },
+    {
+      "id": "vehicle-train",
+      "category_id": "vehicles",
+      "answer": "train",
+      "emoji": "🚂",
+      "image_url": null,
+      "fun_fact": "Trains run on tracks and can be very long.",
+      "pronunciation_hint": "TRAYN"
+    },
+    {
+      "id": "vehicle-bicycle",
+      "category_id": "vehicles",
+      "answer": "bicycle",
+      "emoji": "🚲",
+      "image_url": null,
+      "fun_fact": "Bicycles have two wheels and are powered by pedaling.",
+      "pronunciation_hint": "BY-sih-kuhl"
+    },
+    {
+      "id": "vehicle-helicopter",
+      "category_id": "vehicles",
+      "answer": "helicopter",
+      "emoji": "🚁",
+      "image_url": null,
+      "fun_fact": "Helicopters can fly straight up and hover in the air.",
+      "pronunciation_hint": "HEH-lih-kop-tur"
+    },
+    {
+      "id": "vehicle-boat",
+      "category_id": "vehicles",
+      "answer": "boat",
+      "emoji": "⛵",
+      "image_url": null,
+      "fun_fact": "Boats have been used for travel for thousands of years.",
+      "pronunciation_hint": "BOHT"
+    },
+    {
+      "id": "vehicle-motorcycle",
+      "category_id": "vehicles",
+      "answer": "motorcycle",
+      "emoji": "🏍️",
+      "image_url": null,
+      "fun_fact": "Motorcycles have two wheels and a powerful engine.",
+      "pronunciation_hint": "MOH-tur-sy-kuhl"
+    },
+    {
+      "id": "vehicle-truck",
+      "category_id": "vehicles",
+      "answer": "truck",
+      "emoji": "🚛",
+      "image_url": null,
+      "fun_fact": "Trucks deliver food and goods to stores everywhere.",
+      "pronunciation_hint": "TRUK"
+    },
+    {
+      "id": "vehicle-rocket",
+      "category_id": "vehicles",
+      "answer": "rocket",
+      "emoji": "🚀",
+      "image_url": null,
+      "fun_fact": "Rockets travel fast enough to leave Earth and go to space.",
+      "pronunciation_hint": "ROK-it"
     }
   ]
 }

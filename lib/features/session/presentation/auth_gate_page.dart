@@ -72,7 +72,11 @@ class _AuthGatePageState extends State<AuthGatePage>
               SnackBar(
                 content: Row(
                   children: <Widget>[
-                    const Icon(Icons.warning_rounded, color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.warning_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(child: Text(state.errorMessage!)),
                   ],
@@ -227,9 +231,7 @@ class _AuthGatePageState extends State<AuthGatePage>
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: const Color(0xFF7B6FD4).withValues(alpha: 0.3),
@@ -328,7 +330,8 @@ class _AuthGatePageState extends State<AuthGatePage>
               // Email toggle
               _EmailToggle(
                 expanded: _showEmailForm,
-                onToggle: () => setState(() => _showEmailForm = !_showEmailForm),
+                onToggle: () =>
+                    setState(() => _showEmailForm = !_showEmailForm),
               ),
 
               // Email form (collapsible)
@@ -381,9 +384,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                   color: Colors.white38,
                   size: 20,
                 ),
-                onPressed: () => setState(
-                  () => _obscurePassword = !_obscurePassword,
-                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             const SizedBox(height: 16),
@@ -448,7 +450,9 @@ class _AuthGatePageState extends State<AuthGatePage>
           content: const Text('Enter both email and password.'),
           backgroundColor: const Color(0xFFEF476F),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       );
       return false;
@@ -459,7 +463,9 @@ class _AuthGatePageState extends State<AuthGatePage>
           content: const Text('Enter a valid email address.'),
           backgroundColor: const Color(0xFFEF476F),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       );
       return false;
@@ -470,7 +476,9 @@ class _AuthGatePageState extends State<AuthGatePage>
           content: const Text('Password must be at least 6 characters long.'),
           backgroundColor: const Color(0xFFEF476F),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       );
       return false;
@@ -519,10 +527,7 @@ class _FloatingRocket extends StatelessWidget {
         final tilt = math.sin(t * math.pi * 2) * 0.05;
         return Transform.translate(
           offset: Offset(0, bounce),
-          child: Transform.rotate(
-            angle: tilt,
-            child: child,
-          ),
+          child: Transform.rotate(angle: tilt, child: child),
         );
       },
       child: SizedBox(
@@ -645,7 +650,11 @@ class _RocketBodyPainter extends CustomPainter {
 
     // Body
     final body = RRect.fromLTRBR(
-      cx - 12 * s, 16 * s, cx + 12 * s, 52 * s, Radius.circular(10 * s),
+      cx - 12 * s,
+      16 * s,
+      cx + 12 * s,
+      52 * s,
+      Radius.circular(10 * s),
     );
     canvas.drawRRect(
       body,
@@ -658,11 +667,7 @@ class _RocketBodyPainter extends CustomPainter {
     );
 
     // Window
-    canvas.drawCircle(
-      Offset(cx, 30 * s),
-      6 * s,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawCircle(Offset(cx, 30 * s), 6 * s, Paint()..color = Colors.white);
     canvas.drawCircle(
       Offset(cx, 30 * s),
       6 * s,
@@ -686,7 +691,11 @@ class _RocketBodyPainter extends CustomPainter {
 
     // Nozzle
     final nozzle = RRect.fromLTRBR(
-      cx - 10 * s, 52 * s, cx + 10 * s, 58 * s, Radius.circular(2 * s),
+      cx - 10 * s,
+      52 * s,
+      cx + 10 * s,
+      58 * s,
+      Radius.circular(2 * s),
     );
     canvas.drawRRect(
       nozzle,
@@ -805,9 +814,7 @@ class _StatChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1046,22 +1053,15 @@ class _GlassTextField extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0xFF4CC9F0),
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: Color(0xFF4CC9F0), width: 1.5),
         ),
       ),
     );
@@ -1171,10 +1171,7 @@ class _FloatingOrb extends StatelessWidget {
       animation: controller,
       builder: (BuildContext context, Widget? child) {
         final d = math.sin(controller.value * math.pi * 2 + phase) * 20;
-        return Transform.translate(
-          offset: Offset(d, d * 0.6),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(d, d * 0.6), child: child);
       },
       child: IgnorePointer(
         child: Container(

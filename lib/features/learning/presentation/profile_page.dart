@@ -162,7 +162,7 @@ class _ProfileView extends StatelessWidget {
                               crossAxisCount: 2,
                               mainAxisSpacing: 14,
                               crossAxisSpacing: 14,
-                              childAspectRatio: 0.95,
+                              childAspectRatio: 0.85,
                             ),
                         itemBuilder: (BuildContext context, int index) {
                           final achievement = achievements[index];
@@ -259,7 +259,7 @@ class _ProfileView extends StatelessWidget {
                         icon: Icons.logout_rounded,
                         iconColor: const Color(0xFFEF476F),
                         label: 'Log Out',
-                        onTap: () => context.read<SessionCubit>().signOut(),
+                        onTap: () => _showLogoutDialog(context),
                       ),
                     ],
                   ),
@@ -271,6 +271,46 @@ class _ProfileView extends StatelessWidget {
       ),
       ),
       bottomNavigationBar: const BottomNavBar(activeTab: 'profile'),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Log Out',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text('Are you sure you want to log out?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Color(0xFF6B6B6B)),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                context.read<SessionCubit>().signOut();
+              },
+              child: const Text(
+                'Log Out',
+                style: TextStyle(
+                  color: Color(0xFFEF476F),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

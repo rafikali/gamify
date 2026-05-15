@@ -31,31 +31,47 @@ class LearningRepositoryImpl implements LearningRepository {
         now.day,
       ).subtract(const Duration(days: 6));
 
-      final results = await Future.wait<Object>(<Future<Object>>[
-        firestore!.collection('categories').orderBy('sort_order').get(),
-        profileRef.collection('category_progress').get(),
-        profileRef
-            .collection('game_sessions')
-            .where(
-              'created_at',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
-            )
-            .get(),
-      ]);
+      // Fetch categories (public read — always works).
+      final categoryRows = await firestore!
+          .collection('categories')
+          .orderBy('sort_order')
+          .get();
 
-      final categoryRows = results[0] as QuerySnapshot<Map<String, dynamic>>;
-      final progressRows = results[1] as QuerySnapshot<Map<String, dynamic>>;
-      final sessionRows = results[2] as QuerySnapshot<Map<String, dynamic>>;
+      // Fetch profile data separately — may fail for guests without
+      // deployed security rules. Gracefully degrade on permission errors.
+      QuerySnapshot<Map<String, dynamic>>? progressRows;
+      QuerySnapshot<Map<String, dynamic>>? sessionRows;
+      try {
+        final profileResults =
+            await Future.wait<QuerySnapshot<Map<String, dynamic>>>(<Future<QuerySnapshot<Map<String, dynamic>>>>[
+          profileRef.collection('category_progress').get(),
+          profileRef
+              .collection('game_sessions')
+              .where(
+                'created_at',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
+              )
+              .get(),
+        ]);
+        progressRows = profileResults[0];
+        sessionRows = profileResults[1];
+      } catch (e) {
+        dev.log(
+          'fetchDashboard: profile reads failed (permissions?) — $e',
+          name: 'LEARNIFY.Repo',
+        );
+      }
 
       dev.log(
         'fetchDashboard: fetched ${categoryRows.docs.length} categories, '
-        '${progressRows.docs.length} category_progress docs, '
-        '${sessionRows.docs.length} game_sessions this week',
+        '${progressRows?.docs.length ?? 0} category_progress docs, '
+        '${sessionRows?.docs.length ?? 0} game_sessions this week',
         name: 'LEARNIFY.Repo',
       );
 
       final progressByCategory = <String, Map<String, dynamic>>{
-        for (final doc in progressRows.docs) doc.id: doc.data(),
+        if (progressRows != null)
+          for (final doc in progressRows.docs) doc.id: doc.data(),
       };
 
       final fallbackCategories = MockLearningSeed.categories;
@@ -94,7 +110,9 @@ class LearningRepositoryImpl implements LearningRepository {
       return DashboardData(
         categories: categories,
         achievements: _buildAchievements(user),
-        weeklyXp: _buildWeeklyXp(sessionRows.docs, weekStart),
+        weeklyXp: sessionRows != null
+            ? _buildWeeklyXp(sessionRows.docs, weekStart)
+            : List<int>.filled(7, 0),
       );
     } catch (error, stackTrace) {
       dev.log(
@@ -315,7 +333,7 @@ class LearningRepositoryImpl implements LearningRepository {
       iconName: data['icon_name'] as String? ?? 'school',
       accentHex: data['accent_hex'] as String? ?? '#57C84D',
       emoji: data['emoji'] as String? ?? '🚀',
-      totalWords: _intValue(data['total_words'], fallback: 3),
+      totalWords: _intValue(data['total_words'], fallback: 10),
       masteryPercent:
           (progress?['mastery_percent'] as num?)?.toDouble() ??
           (data['mastery_percent'] as num?)?.toDouble() ??
@@ -335,7 +353,7 @@ class LearningRepositoryImpl implements LearningRepository {
       iconName: data['icon_name'] as String? ?? 'school',
       accentHex: data['accent_hex'] as String? ?? '#57C84D',
       emoji: data['emoji'] as String? ?? '🚀',
-      totalWords: _intValue(data['total_words'], fallback: 3),
+      totalWords: _intValue(data['total_words'], fallback: 10),
       masteryPercent: (data['mastery_percent'] as num?)?.toDouble() ?? 0.0,
       imageUrl: data['image_url'] as String?,
     );
