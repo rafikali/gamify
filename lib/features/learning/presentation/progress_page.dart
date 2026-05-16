@@ -842,15 +842,22 @@ class _WeeklyActivityCard extends StatelessWidget {
   final List<int> weeklyData;
   final AnimationController staggerController;
 
-  static const List<String> _dayLabels = <String>[
+  static const List<String> _weekdayLabels = <String>[
     'M', 'T', 'W', 'T', 'F', 'S', 'S',
   ];
 
   @override
   Widget build(BuildContext context) {
     final maxXp = weeklyData.reduce(math.max).clamp(1, 9999);
-    final todayIndex = DateTime.now().weekday - 1;
+    // weeklyData is indexed 0..6 where index 6 = today, index 0 = 6 days ago
+    const todayIndex = 6;
+    final now = DateTime.now();
     final activeDays = weeklyData.where((int v) => v > 0).length;
+    // Build correct day labels for each index
+    final dayLabels = List<String>.generate(7, (int i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      return _weekdayLabels[day.weekday - 1];
+    });
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -900,7 +907,7 @@ class _WeeklyActivityCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           SizedBox(
-            height: 160,
+            height: 180,
             child: AnimatedBuilder(
               animation: staggerController,
               builder: (BuildContext context, Widget? child) {
@@ -915,7 +922,7 @@ class _WeeklyActivityCard extends StatelessWidget {
                   children: List<Widget>.generate(7, (int i) {
                     final value = weeklyData[i];
                     final barHeight =
-                        value > 0 ? (value / maxXp * 120).clamp(12.0, 120.0) : 4.0;
+                        value > 0 ? (value / maxXp * 110).clamp(12.0, 110.0) : 4.0;
                     final isToday = i == todayIndex;
                     final hasActivity = value > 0;
 
@@ -976,7 +983,7 @@ class _WeeklyActivityCard extends StatelessWidget {
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                _dayLabels[i],
+                                dayLabels[i],
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: isToday
@@ -1087,12 +1094,15 @@ class _StreakCard extends StatelessWidget {
                       ),
                       child: Column(
                         children: <Widget>[
-                          Text(
-                            '${user.streakDays}',
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFEF476F),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${user.streakDays}',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFEF476F),
+                              ),
                             ),
                           ),
                           const Text(
@@ -1123,12 +1133,15 @@ class _StreakCard extends StatelessWidget {
                   ),
                   child: Column(
                     children: <Widget>[
-                      Text(
-                        '${user.bestStreak}',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFE8A800),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '${user.bestStreak}',
+                          style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFE8A800),
+                          ),
                         ),
                       ),
                       const Text(
@@ -1157,11 +1170,22 @@ class _StreakCard extends StatelessWidget {
                   ),
                   child: Column(
                     children: <Widget>[
-                      Text(
-                        '$consistency%',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '$consistency',
+                          style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF2D8A4E),
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        '%',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
                           color: Color(0xFF2D8A4E),
                         ),
                       ),
@@ -1908,7 +1932,7 @@ class _InsightsCard extends StatelessWidget {
 
   String _bestDayOfWeek() {
     if (weeklyData.every((int v) => v == 0)) return 'No data yet';
-    const days = <String>[
+    const dayNames = <String>[
       'Monday', 'Tuesday', 'Wednesday', 'Thursday',
       'Friday', 'Saturday', 'Sunday',
     ];
@@ -1916,7 +1940,11 @@ class _InsightsCard extends StatelessWidget {
     for (int i = 1; i < weeklyData.length; i++) {
       if (weeklyData[i] > weeklyData[bestIndex]) bestIndex = i;
     }
-    return '${days[bestIndex]} (${weeklyData[bestIndex]} XP)';
+    // weeklyData is indexed 0..6 where index 6 = today, index 0 = 6 days ago
+    final now = DateTime.now();
+    final bestDay = now.subtract(Duration(days: 6 - bestIndex));
+    final bestDayName = dayNames[bestDay.weekday - 1];
+    return '$bestDayName (${weeklyData[bestIndex]} XP)';
   }
 
   String _strongestCategory() {
