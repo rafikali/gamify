@@ -1,3 +1,5 @@
+import '../../learning/domain/learning_models.dart';
+
 class SessionUser {
   static const String localGuestId = 'guest';
 
@@ -11,6 +13,7 @@ class SessionUser {
     required this.gamesPlayed,
     required this.lastCategoryId,
     required this.isGuest,
+    this.experienceLevel = ExperienceLevel.beginner,
     this.lastPlayedAt,
   });
 
@@ -24,6 +27,7 @@ class SessionUser {
       gamesPlayed = 0,
       lastCategoryId = null,
       isGuest = true,
+      experienceLevel = ExperienceLevel.beginner,
       lastPlayedAt = null;
 
   final String id;
@@ -35,6 +39,7 @@ class SessionUser {
   final int gamesPlayed;
   final String? lastCategoryId;
   final bool isGuest;
+  final ExperienceLevel experienceLevel;
   final DateTime? lastPlayedAt;
 
   bool get isLocalOnlyGuest => isGuest && id == localGuestId;
@@ -50,6 +55,7 @@ class SessionUser {
     int? gamesPlayed,
     String? lastCategoryId,
     bool? isGuest,
+    ExperienceLevel? experienceLevel,
     DateTime? lastPlayedAt,
   }) {
     return SessionUser(
@@ -62,6 +68,7 @@ class SessionUser {
       gamesPlayed: gamesPlayed ?? this.gamesPlayed,
       lastCategoryId: lastCategoryId ?? this.lastCategoryId,
       isGuest: isGuest ?? this.isGuest,
+      experienceLevel: experienceLevel ?? this.experienceLevel,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
     );
   }
@@ -79,6 +86,7 @@ class SessionUser {
         other.gamesPlayed == gamesPlayed &&
         other.lastCategoryId == lastCategoryId &&
         other.isGuest == isGuest &&
+        other.experienceLevel == experienceLevel &&
         other.lastPlayedAt == lastPlayedAt;
   }
 
@@ -93,6 +101,7 @@ class SessionUser {
     gamesPlayed,
     lastCategoryId,
     isGuest,
+    experienceLevel,
     lastPlayedAt,
   );
 }

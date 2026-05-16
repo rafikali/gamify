@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../learning/domain/learning_models.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_user.dart';
 
@@ -333,6 +334,7 @@ class SessionRepositoryImpl implements SessionRepository {
       lastCategoryId:
           _stringOrNull(data?['last_category_id']) ?? fallback.lastCategoryId,
       isGuest: user.isAnonymous,
+      experienceLevel: _parseExperienceLevel(data?['experience_level']),
       lastPlayedAt: _timestampValue(data?['last_played_at'])?.toDate(),
     );
   }
@@ -354,6 +356,7 @@ class SessionRepositoryImpl implements SessionRepository {
       'words_learned': sessionUser.wordsLearned,
       'games_played': sessionUser.gamesPlayed,
       'last_category_id': sessionUser.lastCategoryId,
+      'experience_level': sessionUser.experienceLevel.name,
       'updated_at': FieldValue.serverTimestamp(),
       if (includeCreatedAt) 'created_at': FieldValue.serverTimestamp(),
       if (includeCreatedAt) 'device_info': _collectDeviceInfo(),
@@ -619,6 +622,15 @@ class SessionRepositoryImpl implements SessionRepository {
 
   Timestamp? _timestampValue(Object? value) {
     return value is Timestamp ? value : null;
+  }
+
+  ExperienceLevel _parseExperienceLevel(Object? value) {
+    final name = value as String?;
+    if (name == null) return ExperienceLevel.beginner;
+    return ExperienceLevel.values.firstWhere(
+      (ExperienceLevel l) => l.name == name,
+      orElse: () => ExperienceLevel.beginner,
+    );
   }
 
   Future<void> _ensureGoogleInitialized() {

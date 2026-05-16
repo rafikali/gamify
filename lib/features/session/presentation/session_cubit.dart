@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/session_repository_impl.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_user.dart';
+import 'onboarding_page.dart';
 
 enum SessionStatus {
   checking,
@@ -120,7 +121,8 @@ class SessionCubit extends Cubit<SessionState> {
     );
 
     try {
-      final guest = await _sessionRepository.continueAsGuest();
+      var guest = await _sessionRepository.continueAsGuest();
+      guest = _applyOnboardingLevel(guest);
       emit(
         state.copyWith(
           status: SessionStatus.guest,
@@ -249,10 +251,11 @@ class SessionCubit extends Cubit<SessionState> {
       );
 
       if (result.user != null) {
+        final user = _applyOnboardingLevel(result.user!);
         emit(
           state.copyWith(
             status: SessionStatus.authenticated,
-            user: result.user,
+            user: user,
             clearError: true,
             clearNotice: true,
           ),
@@ -307,5 +310,15 @@ class SessionCubit extends Cubit<SessionState> {
             : SessionStatus.authenticated,
       ),
     );
+  }
+
+  /// Applies the level selected during onboarding (if any) to a new user.
+  SessionUser _applyOnboardingLevel(SessionUser user) {
+    final level = OnboardingLevelHolder.selectedLevel;
+    if (level == null) return user;
+    // Only apply to brand new users (no games played yet).
+    if (user.gamesPlayed > 0) return user;
+    OnboardingLevelHolder.selectedLevel = null; // consume it
+    return user.copyWith(experienceLevel: level);
   }
 }

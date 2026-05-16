@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/tts/tts_service.dart';
 import '../../../core/voice/speech_recognition_service.dart';
 import '../../session/presentation/session_cubit.dart';
 import '../domain/learning_models.dart';
@@ -38,6 +39,7 @@ class GamePage extends StatelessWidget {
       create: (BuildContext context) => GameBloc(
         learningRepository: context.read<LearningRepository>(),
         speechRecognitionService: speechRecognitionService,
+        ttsService: TtsService(),
         user: user,
       )..add(GameStarted(categoryId)),
       child: MultiBlocListener(
@@ -73,6 +75,13 @@ class GamePage extends StatelessWidget {
                 'category=${state.category?.id ?? categoryId}',
                 name: 'LEARNIFY.GamePage',
               );
+              // Detect level-up by comparing original user level to updated level.
+              final originalUser = context.read<SessionCubit>().state.user;
+              final updatedUser = state.updatedUser;
+              final leveledUp = updatedUser != null &&
+                  originalUser != null &&
+                  updatedUser.experienceLevel != originalUser.experienceLevel;
+
               final resultUri = Uri(
                 path: '/result',
                 queryParameters: <String, String>{
@@ -81,6 +90,8 @@ class GamePage extends StatelessWidget {
                   'correct': '${state.correctAnswers}',
                   'mistakes': '${state.wrongAnswers}',
                   'category': state.category?.id ?? categoryId,
+                  if (leveledUp)
+                    'leveled_up': updatedUser.experienceLevel.name,
                 },
               );
               context.go(resultUri.toString());
@@ -217,8 +228,13 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
 
   void _onStateChanged(GameState curr) {
     // New round → reset & start falling + auto-open mic
-    if (curr.currentIndex != _prevIndex &&
-        (curr.phase == GamePhase.ready || curr.phase == GamePhase.listening)) {
+    // Start fall when entering "ready" (either directly or after "speaking" phase).
+    final isNewRound = curr.currentIndex != _prevIndex &&
+        (curr.phase == GamePhase.ready || curr.phase == GamePhase.listening);
+    final isSpeakingDone = _prevPhase == GamePhase.speaking &&
+        curr.phase == GamePhase.ready;
+
+    if (isNewRound || isSpeakingDone) {
       _prevIndex = curr.currentIndex;
       _cardCleared = false;
       _rocketExploded = false;
@@ -306,7 +322,8 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
             prev.score != curr.score ||
             prev.combo != curr.combo ||
             prev.correctAnswers != curr.correctAnswers ||
-            prev.challenges != curr.challenges,
+            prev.challenges != curr.challenges ||
+            prev.pronunciationEnabled != curr.pronunciationEnabled,
         builder: (BuildContext context, GameState state) {
           if (state.phase == GamePhase.loading) {
             return const Center(child: CircularProgressIndicator());
@@ -505,6 +522,16 @@ class _GameViewState extends State<_GameView> with TickerProviderStateMixin {
                 child: IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 28),
                   onPressed: () => context.pop(),
+                ),
+              ),
+
+              // Pronunciation toggle
+              Positioned(
+                top: 4,
+                right: 8,
+                child: _PronunciationToggle(
+                  enabled: state.pronunciationEnabled,
+                  onPressed: () => context.read<GameBloc>().add(const PronunciationToggled()),
                 ),
               ),
 
@@ -766,16 +793,18 @@ class _WordCardBody extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(challenge.emoji, style: const TextStyle(fontSize: 52)),
-          const SizedBox(height: 10),
-          Text(
-            challenge.answer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF2D2D2D),
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+          if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+            const SizedBox(height: 10),
+            Text(
+              challenge.answer,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF2D2D2D),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1196,15 +1225,17 @@ class _UpcomingWordsColumn extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(c.emoji, style: const TextStyle(fontSize: 20)),
-                    const SizedBox(width: 6),
-                    Text(
-                      c.answer,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        c.answer,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1212,6 +1243,52 @@ class _UpcomingWordsColumn extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Pronunciation toggle button
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _PronunciationToggle extends StatelessWidget {
+  const _PronunciationToggle({
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: enabled
+              ? const Color(0xFF4CC9F0).withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: enabled
+                ? const Color(0xFF4CC9F0).withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            enabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            key: ValueKey(enabled),
+            color: enabled ? const Color(0xFF4CC9F0) : Colors.white38,
+            size: 22,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2509,16 +2586,18 @@ class _BubbleWordCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(challenge.emoji, style: const TextStyle(fontSize: 44)),
-          const SizedBox(height: 8),
-          Text(
-            challenge.answer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+          if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+            const SizedBox(height: 8),
+            Text(
+              challenge.answer,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -2955,17 +3034,19 @@ class _SpellCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(challenge.emoji, style: const TextStyle(fontSize: 52)),
-          const SizedBox(height: 12),
-          Text(
-            challenge.answer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
+          if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+            const SizedBox(height: 12),
+            Text(
+              challenge.answer,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -3288,22 +3369,24 @@ class _SpeedBlitzScreen extends StatelessWidget {
                                           challenge.emoji,
                                           style: const TextStyle(fontSize: 56),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          challenge.answer,
-                                          style: TextStyle(
-                                            color: urgency > 0.5
-                                                ? Color.lerp(
-                                                    const Color(0xFFFFD166),
-                                                    const Color(0xFFEF476F),
-                                                    urgency,
-                                                  )
-                                                : const Color(0xFFFFD166),
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 3,
+                                        if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            challenge.answer,
+                                            style: TextStyle(
+                                              color: urgency > 0.5
+                                                  ? Color.lerp(
+                                                      const Color(0xFFFFD166),
+                                                      const Color(0xFFEF476F),
+                                                      urgency,
+                                                    )
+                                                  : const Color(0xFFFFD166),
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 3,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -3961,16 +4044,18 @@ class _MeteorWordCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(challenge.emoji, style: const TextStyle(fontSize: 48)),
-          const SizedBox(height: 8),
-          Text(
-            challenge.answer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFFFFCC80),
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+          if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+            const SizedBox(height: 8),
+            Text(
+              challenge.answer,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFFFCC80),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -4587,22 +4672,24 @@ class _CrystalWordCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(challenge.emoji, style: const TextStyle(fontSize: 52)),
-            const SizedBox(height: 10),
-            Text(
-              challenge.answer,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: crystalColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                shadows: <Shadow>[
-                  Shadow(
-                    color: crystalColor.withValues(alpha: 0.5),
-                    blurRadius: 12,
-                  ),
-                ],
+            if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+              const SizedBox(height: 10),
+              Text(
+                challenge.answer,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: crystalColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  shadows: <Shadow>[
+                    Shadow(
+                      color: crystalColor.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -5520,16 +5607,18 @@ class _BattleWordCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(challenge.emoji, style: const TextStyle(fontSize: 48)),
-          const SizedBox(height: 10),
-          Text(
-            challenge.answer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFFFFCC80),
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+          if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+            const SizedBox(height: 10),
+            Text(
+              challenge.answer,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFFFCC80),
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -5844,22 +5933,24 @@ class _RhythmRushScreen extends StatelessWidget {
                                           challenge.emoji,
                                           style: const TextStyle(fontSize: 52),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          challenge.answer,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900,
-                                            shadows: <Shadow>[
-                                              Shadow(
-                                                color: const Color(0xFF80ED99)
-                                                    .withValues(alpha: 0.5),
-                                                blurRadius: 12,
-                                              ),
-                                            ],
+                                        if (context.read<SessionCubit>().state.user!.experienceLevel.showWordName) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            challenge.answer,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w900,
+                                              shadows: <Shadow>[
+                                                Shadow(
+                                                  color: const Color(0xFF80ED99)
+                                                      .withValues(alpha: 0.5),
+                                                  blurRadius: 12,
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ),

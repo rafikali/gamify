@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/tts/tts_service.dart';
 import '../../../core/voice/speech_recognition_service.dart';
 import '../../session/domain/session_user.dart';
 import '../domain/learning_models.dart';
@@ -47,7 +48,15 @@ class _SpeechSessionEnded extends GameEvent {
   const _SpeechSessionEnded();
 }
 
-enum GamePhase { loading, ready, listening, feedback, completed, failure }
+class PronunciationToggled extends GameEvent {
+  const PronunciationToggled();
+}
+
+class _PronunciationCompleted extends GameEvent {
+  const _PronunciationCompleted();
+}
+
+enum GamePhase { loading, speaking, ready, listening, feedback, completed, failure }
 
 class GameState {
   const GameState({
@@ -61,6 +70,7 @@ class GameState {
     required this.secondsLeft,
     required this.combo,
     required this.speechReady,
+    required this.pronunciationEnabled,
     this.category,
     this.feedback,
     this.transcript = '',
@@ -76,10 +86,11 @@ class GameState {
         score: 0,
         correctAnswers: 0,
         wrongAnswers: 0,
-        remainingLives: 3,
-        secondsLeft: 8,
+        remainingLives: 5, // will be overridden by level on GameStarted
+        secondsLeft: 12,
         combo: 0,
         speechReady: false,
+        pronunciationEnabled: false,
       );
 
   final GamePhase phase;
@@ -93,6 +104,7 @@ class GameState {
   final int secondsLeft;
   final int combo;
   final bool speechReady;
+  final bool pronunciationEnabled;
   final String? feedback;
   final String transcript;
   final SessionUser? updatedUser;
@@ -116,6 +128,7 @@ class GameState {
     int? secondsLeft,
     int? combo,
     bool? speechReady,
+    bool? pronunciationEnabled,
     String? feedback,
     String? transcript,
     SessionUser? updatedUser,
@@ -135,6 +148,7 @@ class GameState {
       secondsLeft: secondsLeft ?? this.secondsLeft,
       combo: combo ?? this.combo,
       speechReady: speechReady ?? this.speechReady,
+      pronunciationEnabled: pronunciationEnabled ?? this.pronunciationEnabled,
       feedback: clearFeedback ? null : feedback ?? this.feedback,
       transcript: transcript ?? this.transcript,
       updatedUser: updatedUser ?? this.updatedUser,
@@ -147,9 +161,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   GameBloc({
     required LearningRepository learningRepository,
     required SpeechRecognitionService speechRecognitionService,
+    required TtsService ttsService,
     required SessionUser user,
   }) : _learningRepository = learningRepository,
        _speechRecognitionService = speechRecognitionService,
+       _ttsService = ttsService,
        _user = user,
        super(const GameState.initial()) {
     on<GameStarted>(_onStarted);
@@ -159,10 +175,13 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<_AdvanceRoundRequested>(_onAdvanceRoundRequested);
     on<_SpeechFailed>(_onSpeechFailed);
     on<_SpeechSessionEnded>(_onSpeechSessionEnded);
+    on<PronunciationToggled>(_onPronunciationToggled);
+    on<_PronunciationCompleted>(_onPronunciationCompleted);
   }
 
   final LearningRepository _learningRepository;
   final SpeechRecognitionService _speechRecognitionService;
+  final TtsService _ttsService;
   final SessionUser _user;
 
   Timer? _roundTimer;
@@ -180,24 +199,35 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(const GameState.initial());
 
     final speechReady = await _speechRecognitionService.initialize();
+    await _ttsService.initialize();
     final session = await _learningRepository.startGame(
       user: _user,
       categoryId: event.categoryId,
     );
 
+    // Default: ON for intermediate/pro (word name hidden), OFF for beginner.
+    final pronounceDefault = !_user.experienceLevel.showWordName;
+
     emit(
       state.copyWith(
-        phase: GamePhase.ready,
+        phase: pronounceDefault ? GamePhase.speaking : GamePhase.ready,
         category: session.category,
         challenges: session.challenges,
+        remainingLives: _user.experienceLevel.startingLives,
+        secondsLeft: _user.experienceLevel.roundSeconds,
         speechReady: speechReady,
+        pronunciationEnabled: pronounceDefault,
         clearFeedback: true,
         clearError: true,
       ),
     );
 
-    _startRoundTimer(emit);
-    _openMic();
+    if (pronounceDefault) {
+      _speakCurrentWord();
+    } else {
+      _startRoundTimer(emit);
+      _openMic();
+    }
   }
 
   Future<void> _onListenPressed(
@@ -275,10 +305,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     if (normalizedSpoken.contains(normalizedAnswer)) {
       await _speechRecognitionService.stop();
       _cancelRoundTimer();
+      final baseScore = 12 + (state.combo * 2);
       emit(
         state.copyWith(
           phase: GamePhase.feedback,
-          score: state.score + 12 + (state.combo * 2),
+          score: state.score + baseScore,
           correctAnswers: state.correctAnswers + 1,
           combo: state.combo + 1,
           feedback: 'Boost! ${challenge.answer.toUpperCase()} cleared.',
@@ -326,17 +357,23 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       return;
     }
 
+    final shouldSpeak = state.pronunciationEnabled;
     emit(
       state.copyWith(
-        phase: GamePhase.ready,
+        phase: shouldSpeak ? GamePhase.speaking : GamePhase.ready,
         currentIndex: nextIndex,
-        secondsLeft: 8,
+        secondsLeft: _user.experienceLevel.roundSeconds,
         transcript: '',
         clearFeedback: true,
       ),
     );
-    _startRoundTimer(emit);
-    _openMic();
+
+    if (shouldSpeak) {
+      _speakCurrentWord();
+    } else {
+      _startRoundTimer(emit);
+      _openMic();
+    }
   }
 
   Future<void> _onSpeechFailed(
@@ -405,9 +442,45 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     );
   }
 
+  void _speakCurrentWord() {
+    final word = state.currentChallenge?.answer;
+    if (word == null) return;
+    _ttsService.speak(word).then((_) {
+      if (!isClosed) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!isClosed) add(const _PronunciationCompleted());
+        });
+      }
+    });
+  }
+
+  void _onPronunciationToggled(
+    PronunciationToggled event,
+    Emitter<GameState> emit,
+  ) {
+    emit(state.copyWith(
+      pronunciationEnabled: !state.pronunciationEnabled,
+    ));
+  }
+
+  void _onPronunciationCompleted(
+    _PronunciationCompleted event,
+    Emitter<GameState> emit,
+  ) {
+    // TTS finished — transition to ready and start the round.
+    if (state.phase == GamePhase.speaking) {
+      emit(state.copyWith(phase: GamePhase.ready));
+      _startRoundTimer(emit);
+      _openMic();
+    }
+  }
+
   void _startRoundTimer(Emitter<GameState> emit) {
     _cancelRoundTimer();
-    emit(state.copyWith(secondsLeft: 8, phase: GamePhase.ready));
+    emit(state.copyWith(
+      secondsLeft: _user.experienceLevel.roundSeconds,
+      phase: GamePhase.ready,
+    ));
     _roundTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       add(const _RoundTicked());
     });
@@ -434,6 +507,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     _cancelRoundTimer();
     _advanceTimer?.cancel();
     await _speechRecognitionService.stop();
+    await _ttsService.stop();
     return super.close();
   }
 }

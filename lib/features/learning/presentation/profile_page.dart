@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../session/domain/session_user.dart';
 import '../../session/presentation/session_cubit.dart';
+import '../domain/learning_models.dart';
 import '../domain/learning_repository.dart';
 import 'bottom_nav_bar.dart';
 import 'dashboard_cubit.dart';
@@ -209,13 +210,18 @@ class _ProfileViewState extends State<_ProfileView>
                   )),
                   const SizedBox(height: 16),
 
-                  // ── Next Unlock Teaser
+                  // ── Experience Level
                   _animated(0.2, 0.5,
+                      child: _ExperienceLevelCard(user: user)),
+                  const SizedBox(height: 16),
+
+                  // ── Next Unlock Teaser
+                  _animated(0.28, 0.58,
                       child: _NextUnlockCard(user: user)),
                   const SizedBox(height: 24),
 
                   // ── Settings
-                  _animated(0.4, 0.7, child: Container(
+                  _animated(0.45, 0.75, child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 12,
@@ -951,8 +957,266 @@ class _StreakMultiplierCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 4. EXPERIENCE LEVEL — shows current level + progress to next
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. NEXT UNLOCK TEASER — shows what's coming to create FOMO
+class _ExperienceLevelCard extends StatelessWidget {
+  const _ExperienceLevelCard({required this.user});
+
+  final SessionUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = user.experienceLevel;
+    final nextLevel = level.next;
+    final progress = LevelUpRequirements.progress(
+      currentLevel: level,
+      gamesPlayed: user.gamesPlayed,
+      wordsLearned: user.wordsLearned,
+      totalXp: user.totalXp,
+    );
+    final gradColors = level.gradientHex
+        .map((int hex) => Color(hex))
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            gradColors[0].withValues(alpha: 0.08),
+            gradColors[1].withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: gradColors[0].withValues(alpha: 0.2),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 20,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              // Level emoji with gradient background
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: gradColors),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: gradColors[0].withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  level.emoji,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          level.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: Color(0xFF2D2D2D),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: gradColors),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${level.xpMultiplier}x XP',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      level.subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Level perks row
+          Row(
+            children: <Widget>[
+              _LevelPerk(
+                icon: Icons.timer_rounded,
+                label: '${level.roundSeconds}s',
+                color: gradColors[0],
+              ),
+              const SizedBox(width: 10),
+              _LevelPerk(
+                icon: Icons.favorite_rounded,
+                label: '${level.startingLives}',
+                color: gradColors[0],
+              ),
+              const SizedBox(width: 10),
+              _LevelPerk(
+                icon: Icons.auto_awesome_rounded,
+                label: '${level.wordsPerSession}w',
+                color: gradColors[0],
+              ),
+            ],
+          ),
+
+          if (nextLevel != null) ...<Widget>[
+            const SizedBox(height: 16),
+            // Progress to next level
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Text(
+                  'Progress to ${nextLevel.title}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: gradColors[0],
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                height: 8,
+                child: Stack(
+                  children: <Widget>[
+                    Container(color: gradColors[0].withValues(alpha: 0.12)),
+                    FractionallySizedBox(
+                      widthFactor: progress.clamp(0.0, 1.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: gradColors),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const Text('⚡', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 6),
+                  ShaderMask(
+                    shaderCallback: (Rect bounds) =>
+                        LinearGradient(colors: gradColors).createShader(bounds),
+                    child: const Text(
+                      'MAX LEVEL ACHIEVED',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelPerk extends StatelessWidget {
+  const _LevelPerk({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. NEXT UNLOCK TEASER — shows what's coming to create FOMO
 // ─────────────────────────────────────────────────────────────────────────────
 class _NextUnlockCard extends StatelessWidget {
   const _NextUnlockCard({required this.user});

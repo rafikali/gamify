@@ -134,13 +134,15 @@ class LearningRepositoryImpl implements LearningRepository {
     required SessionUser user,
     required String categoryId,
   }) async {
+    final level = user.experienceLevel;
     final fallbackCategory = MockLearningSeed.categories.firstWhere(
       (LearningCategory category) => category.id == categoryId,
       orElse: () => MockLearningSeed.categories.first,
     );
-    final fallbackWords =
+    final allFallbackWords =
         MockLearningSeed.wordsByCategory[fallbackCategory.id] ??
         const <WordChallenge>[];
+    final fallbackWords = _filterAndLimitWords(allFallbackWords, level);
 
     if (firestore == null) {
       return GameSessionBundle(
@@ -155,7 +157,7 @@ class LearningRepositoryImpl implements LearningRepository {
         firestore!
             .collection('words')
             .where('category_id', isEqualTo: categoryId)
-            .limit(12)
+            .limit(20) // fetch more, then filter by difficulty
             .get(),
       ]);
 
@@ -165,7 +167,7 @@ class LearningRepositoryImpl implements LearningRepository {
           ? _mapCategoryDocument(categoryRow)
           : fallbackCategory;
 
-      final words = wordRows.docs
+      final allWords = wordRows.docs
           .map(
             (QueryDocumentSnapshot<Map<String, dynamic>> row) => WordChallenge(
               id: row.id,
@@ -176,10 +178,13 @@ class LearningRepositoryImpl implements LearningRepository {
               pronunciationHint:
                   row.data()['pronunciation_hint'] as String? ??
                   'Say it clearly',
+              difficulty: _intValue(row.data()['difficulty'], fallback: 1),
               imageUrl: row.data()['image_url'] as String?,
             ),
           )
           .toList();
+
+      final words = _filterAndLimitWords(allWords, level);
 
       return GameSessionBundle(
         category: category,
@@ -198,17 +203,34 @@ class LearningRepositoryImpl implements LearningRepository {
     required SessionUser user,
     required GameSummary summary,
   }) async {
-    final gainedXp = summary.score;
+    final level = user.experienceLevel;
+    final baseXp = summary.score;
+    final gainedXp = (baseXp * level.xpMultiplier).round();
     final now = DateTime.now();
     final currentStreak = _calculateStreak(user, now);
+
+    // Check for auto level-up after applying new stats.
+    final newTotalXp = user.totalXp + gainedXp;
+    final newWordsLearned = user.wordsLearned + summary.correctAnswers;
+    final newGamesPlayed = user.gamesPlayed + 1;
+
+    final shouldLevelUp = LevelUpRequirements.qualifies(
+      currentLevel: level,
+      gamesPlayed: newGamesPlayed,
+      wordsLearned: newWordsLearned,
+      totalXp: newTotalXp,
+    );
+    final newLevel = shouldLevelUp ? (level.next ?? level) : level;
+
     final updatedUser = user.copyWith(
-      totalXp: user.totalXp + gainedXp,
+      totalXp: newTotalXp,
       streakDays: currentStreak,
       bestStreak: _maxInt(user.bestStreak, currentStreak),
-      wordsLearned: user.wordsLearned + summary.correctAnswers,
-      gamesPlayed: user.gamesPlayed + 1,
+      wordsLearned: newWordsLearned,
+      gamesPlayed: newGamesPlayed,
       lastCategoryId: summary.categoryId,
       lastPlayedAt: now,
+      experienceLevel: newLevel,
     );
 
     // Skip Firestore write when running in mock/offline mode.
@@ -232,7 +254,9 @@ class LearningRepositoryImpl implements LearningRepository {
     dev.log(
       'completeGame: entry — userId=${user.id}, isGuest=${user.isGuest}, '
       'categoryId=${summary.categoryId}, score=${summary.score}, '
-      'correct=${summary.correctAnswers}, wrong=${summary.wrongAnswers}',
+      'xpGained=$gainedXp (${level.xpMultiplier}x), '
+      'correct=${summary.correctAnswers}, wrong=${summary.wrongAnswers}, '
+      'levelUp=$shouldLevelUp (${level.name} → ${newLevel.name})',
       name: 'LEARNIFY.Repo',
     );
 
@@ -260,6 +284,7 @@ class LearningRepositoryImpl implements LearningRepository {
         'words_learned': updatedUser.wordsLearned,
         'games_played': updatedUser.gamesPlayed,
         'last_category_id': summary.categoryId,
+        'experience_level': newLevel.name,
         'last_played_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -286,6 +311,8 @@ class LearningRepositoryImpl implements LearningRepository {
       batch.set(profileReference.collection('game_sessions').doc(), <String, dynamic>{
         'category_id': summary.categoryId,
         'score': summary.score,
+        'xp_gained': gainedXp,
+        'experience_level': level.name,
         'correct_answers': summary.correctAnswers,
         'wrong_answers': summary.wrongAnswers,
         'cleared_all': summary.clearedAll,
@@ -305,7 +332,7 @@ class LearningRepositoryImpl implements LearningRepository {
 
       dev.log(
         'completeGame: batch commit SUCCESS — '
-        'score=${summary.score}, xp=${updatedUser.totalXp}',
+        'score=${summary.score}, xp=$gainedXp, totalXp=${updatedUser.totalXp}',
         name: 'LEARNIFY.Repo',
       );
     } catch (error, stackTrace) {
@@ -319,6 +346,50 @@ class LearningRepositoryImpl implements LearningRepository {
     }
 
     return updatedUser;
+  }
+
+  @override
+  Future<SessionUser> levelUp({required SessionUser user}) async {
+    final nextLevel = user.experienceLevel.next;
+    if (nextLevel == null) return user;
+
+    final updatedUser = user.copyWith(experienceLevel: nextLevel);
+
+    if (firestore != null && user.id != SessionUser.localGuestId) {
+      try {
+        await firestore!.collection('profiles').doc(user.id).set(
+          <String, dynamic>{
+            'experience_level': nextLevel.name,
+            'updated_at': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } catch (error) {
+        dev.log(
+          'levelUp: Firebase write FAILED — $error',
+          name: 'LEARNIFY.Repo',
+        );
+      }
+    }
+
+    return updatedUser;
+  }
+
+  /// Filters words by the user's max word difficulty and limits to wordsPerSession.
+  List<WordChallenge> _filterAndLimitWords(
+    List<WordChallenge> words,
+    ExperienceLevel level,
+  ) {
+    final filtered = words
+        .where((WordChallenge w) => w.difficulty <= level.maxWordDifficulty)
+        .toList();
+
+    // If filtering removes too many words, include all available.
+    final pool = filtered.length >= 3 ? filtered : words;
+
+    // Shuffle and take up to wordsPerSession.
+    final shuffled = List<WordChallenge>.of(pool)..shuffle();
+    return shuffled.take(level.wordsPerSession).toList();
   }
 
   LearningCategory _mapCategoryRow(

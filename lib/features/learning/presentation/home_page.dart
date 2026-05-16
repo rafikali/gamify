@@ -88,12 +88,14 @@ class _HomeView extends StatelessWidget {
                         ],
                       ),
                     ),
+                    _LevelPill(level: user.experienceLevel),
+                    const SizedBox(width: 8),
                     _ScorePill(
                       icon: Icons.local_fire_department_rounded,
                       color: const Color(0xFFEF476F),
                       value: '${user.streakDays}',
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     _ScorePill(
                       icon: Icons.monetization_on_rounded,
                       color: const Color(0xFFFFD166),
@@ -289,6 +291,46 @@ class _HomeView extends StatelessWidget {
       ),
       ),
       bottomNavigationBar: const BottomNavBar(activeTab: 'home'),
+    );
+  }
+}
+
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({required this.level});
+
+  final ExperienceLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = level.gradientHex.map((int hex) => Color(hex)).toList();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: colors[0].withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(level.emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 4),
+          Text(
+            level.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

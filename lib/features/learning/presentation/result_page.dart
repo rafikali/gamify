@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../session/presentation/session_cubit.dart';
+import '../domain/learning_models.dart';
 
 class ResultPage extends StatefulWidget {
   const ResultPage({
@@ -15,6 +16,7 @@ class ResultPage extends StatefulWidget {
     required this.correctAnswers,
     required this.mistakes,
     required this.categoryId,
+    this.leveledUpTo,
   });
 
   final int score;
@@ -22,6 +24,8 @@ class ResultPage extends StatefulWidget {
   final int correctAnswers;
   final int mistakes;
   final String categoryId;
+  /// Name of the ExperienceLevel the user just leveled up to, or null.
+  final String? leveledUpTo;
 
   @override
   State<ResultPage> createState() => _ResultPageState();
@@ -331,6 +335,20 @@ class _ResultPageState extends State<ResultPage> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
+
+                    // Level-up celebration
+                    if (widget.leveledUpTo != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      SlideTransition(
+                        position: _staggeredSlide(0.6, 0.85),
+                        child: FadeTransition(
+                          opacity: _staggeredFade(0.6, 0.85),
+                          child: _LevelUpBanner(
+                            levelName: widget.leveledUpTo!,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
 
                     // Buttons
@@ -1069,6 +1087,151 @@ class _SignInNudgeSheetState extends State<_SignInNudgeSheet>
           ],
         ),
       ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Level-up celebration banner
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _LevelUpBanner extends StatefulWidget {
+  const _LevelUpBanner({required this.levelName});
+
+  final String levelName;
+
+  @override
+  State<_LevelUpBanner> createState() => _LevelUpBannerState();
+}
+
+class _LevelUpBannerState extends State<_LevelUpBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final level = ExperienceLevel.values.firstWhere(
+      (ExperienceLevel l) => l.name == widget.levelName,
+      orElse: () => ExperienceLevel.intermediate,
+    );
+    final colors = level.gradientHex.map((int hex) => Color(hex)).toList();
+
+    return AnimatedBuilder(
+      animation: _glowController,
+      builder: (BuildContext context, Widget? child) {
+        final glow = 0.15 + _glowController.value * 0.2;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: colors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: colors[0].withValues(alpha: glow),
+                blurRadius: 30,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: Column(
+        children: <Widget>[
+          const Text(
+            '🎉 LEVEL UP! 🎉',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You are now ${level.title} ${level.emoji}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                _LevelUpPerk(
+                  icon: Icons.timer_rounded,
+                  label: '${level.roundSeconds}s timer',
+                ),
+                const SizedBox(width: 16),
+                _LevelUpPerk(
+                  icon: Icons.favorite_rounded,
+                  label: '${level.startingLives} lives',
+                ),
+                const SizedBox(width: 16),
+                _LevelUpPerk(
+                  icon: Icons.bolt_rounded,
+                  label: '${level.xpMultiplier}x XP',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelUpPerk extends StatelessWidget {
+  const _LevelUpPerk({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, color: Colors.white, size: 16),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

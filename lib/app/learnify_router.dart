@@ -136,12 +136,14 @@ GoRouter createLearnifyRouter(
           final mistakes =
               int.tryParse(state.uri.queryParameters['mistakes'] ?? '') ?? 0;
           final categoryId = state.uri.queryParameters['category'] ?? 'fruits';
+          final leveledUp = state.uri.queryParameters['leveled_up'];
           return ResultPage(
             score: score,
             accuracy: accuracy,
             correctAnswers: correctAnswers,
             mistakes: mistakes,
             categoryId: categoryId,
+            leveledUpTo: leveledUp,
           );
         },
       ),

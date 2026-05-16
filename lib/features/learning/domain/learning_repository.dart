@@ -13,4 +13,8 @@ abstract class LearningRepository {
     required SessionUser user,
     required GameSummary summary,
   });
+
+  /// Promotes user to the next experience level if they qualify.
+  /// Returns updated user with new level, or same user if already max.
+  Future<SessionUser> levelUp({required SessionUser user});
 }

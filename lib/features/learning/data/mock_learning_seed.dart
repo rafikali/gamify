@@ -103,6 +103,7 @@ class MockLearningSeed {
             emoji: '🍎',
             funFact: 'Apples float because they contain air.',
             pronunciationHint: 'AP-uhl',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'fruit-banana',
@@ -111,6 +112,7 @@ class MockLearningSeed {
             emoji: '🍌',
             funFact: 'Bananas grow in large bunches.',
             pronunciationHint: 'buh-NAH-nuh',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'fruit-orange',
@@ -119,6 +121,7 @@ class MockLearningSeed {
             emoji: '🍊',
             funFact: 'Oranges are packed with vitamin C.',
             pronunciationHint: 'OR-inj',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'fruit-grape',
@@ -127,6 +130,7 @@ class MockLearningSeed {
             emoji: '🍇',
             funFact: 'Grapes can be red, green, or purple.',
             pronunciationHint: 'GRAYP',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'fruit-strawberry',
@@ -135,6 +139,7 @@ class MockLearningSeed {
             emoji: '🍓',
             funFact: 'Strawberries have seeds on the outside.',
             pronunciationHint: 'STRAW-beh-ree',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'fruit-watermelon',
@@ -143,6 +148,7 @@ class MockLearningSeed {
             emoji: '🍉',
             funFact: 'Watermelons are over 90 percent water.',
             pronunciationHint: 'WAW-ter-meh-lun',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'fruit-pineapple',
@@ -151,6 +157,7 @@ class MockLearningSeed {
             emoji: '🍍',
             funFact: 'A pineapple takes two years to grow.',
             pronunciationHint: 'PYN-ap-uhl',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'fruit-mango',
@@ -159,6 +166,7 @@ class MockLearningSeed {
             emoji: '🥭',
             funFact: 'Mangoes are called the king of fruits.',
             pronunciationHint: 'MANG-oh',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'fruit-peach',
@@ -167,6 +175,7 @@ class MockLearningSeed {
             emoji: '🍑',
             funFact: 'Peaches have soft fuzzy skin.',
             pronunciationHint: 'PEECH',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'fruit-cherry',
@@ -175,6 +184,7 @@ class MockLearningSeed {
             emoji: '🍒',
             funFact: 'Cherries often grow in pairs on one stem.',
             pronunciationHint: 'CHEH-ree',
+            difficulty: 2,
           ),
         ],
         'vegetables': <WordChallenge>[
@@ -185,6 +195,7 @@ class MockLearningSeed {
             emoji: '🥕',
             funFact: 'Carrots can be orange, purple, or yellow.',
             pronunciationHint: 'KA-rut',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-broccoli',
@@ -193,6 +204,7 @@ class MockLearningSeed {
             emoji: '🥦',
             funFact: 'Broccoli looks like a tiny tree.',
             pronunciationHint: 'BROK-uh-lee',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'veg-pepper',
@@ -201,6 +213,7 @@ class MockLearningSeed {
             emoji: '🫑',
             funFact: 'Bell peppers start green, then change color.',
             pronunciationHint: 'PEH-per',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-tomato',
@@ -209,6 +222,7 @@ class MockLearningSeed {
             emoji: '🍅',
             funFact: 'Tomatoes are actually a fruit but used as a vegetable.',
             pronunciationHint: 'tuh-MAY-toh',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-corn',
@@ -217,6 +231,7 @@ class MockLearningSeed {
             emoji: '🌽',
             funFact: 'Each ear of corn has about 800 kernels.',
             pronunciationHint: 'KORN',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'veg-potato',
@@ -225,6 +240,7 @@ class MockLearningSeed {
             emoji: '🥔',
             funFact: 'Potatoes were the first vegetable grown in space.',
             pronunciationHint: 'puh-TAY-toh',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-onion',
@@ -233,6 +249,7 @@ class MockLearningSeed {
             emoji: '🧅',
             funFact: 'Onions make you cry because they release a gas.',
             pronunciationHint: 'UN-yun',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-garlic',
@@ -241,6 +258,7 @@ class MockLearningSeed {
             emoji: '🧄',
             funFact: 'Garlic has been used as medicine for centuries.',
             pronunciationHint: 'GAR-lik',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-mushroom',
@@ -249,6 +267,7 @@ class MockLearningSeed {
             emoji: '🍄',
             funFact: 'Mushrooms grow in dark and damp places.',
             pronunciationHint: 'MUSH-room',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'veg-lettuce',
@@ -257,6 +276,7 @@ class MockLearningSeed {
             emoji: '🥬',
             funFact: 'Lettuce is mostly made of water.',
             pronunciationHint: 'LEH-tis',
+            difficulty: 2,
           ),
         ],
         'jobs': <WordChallenge>[
@@ -267,6 +287,7 @@ class MockLearningSeed {
             emoji: '🧑‍🏫',
             funFact: 'Teachers guide students every day.',
             pronunciationHint: 'TEE-chur',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-doctor',
@@ -275,6 +296,7 @@ class MockLearningSeed {
             emoji: '🧑‍⚕️',
             funFact: 'Doctors help people feel better.',
             pronunciationHint: 'DOK-tur',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-firefighter',
@@ -283,6 +305,7 @@ class MockLearningSeed {
             emoji: '🧑‍🚒',
             funFact: 'Firefighters train for emergencies.',
             pronunciationHint: 'FIRE-fy-ter',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'job-police',
@@ -291,6 +314,7 @@ class MockLearningSeed {
             emoji: '👮',
             funFact: 'Police officers help keep communities safe.',
             pronunciationHint: 'puh-LEES',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-chef',
@@ -299,6 +323,7 @@ class MockLearningSeed {
             emoji: '🧑‍🍳',
             funFact: 'Chefs create delicious meals in restaurants.',
             pronunciationHint: 'SHEF',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'job-pilot',
@@ -307,6 +332,7 @@ class MockLearningSeed {
             emoji: '🧑‍✈️',
             funFact: 'Pilots fly airplanes across the world.',
             pronunciationHint: 'PYE-lut',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-farmer',
@@ -315,6 +341,7 @@ class MockLearningSeed {
             emoji: '🧑‍🌾',
             funFact: 'Farmers grow the food we eat every day.',
             pronunciationHint: 'FAR-mur',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-nurse',
@@ -323,6 +350,7 @@ class MockLearningSeed {
             emoji: '🧑‍⚕️',
             funFact: 'Nurses care for patients in hospitals.',
             pronunciationHint: 'NURS',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'job-artist',
@@ -331,6 +359,7 @@ class MockLearningSeed {
             emoji: '🧑‍🎨',
             funFact: 'Artists express ideas through painting and drawing.',
             pronunciationHint: 'AR-tist',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'job-astronaut',
@@ -339,6 +368,7 @@ class MockLearningSeed {
             emoji: '🧑‍🚀',
             funFact: 'Astronauts train for years before going to space.',
             pronunciationHint: 'AS-truh-nawt',
+            difficulty: 3,
           ),
         ],
         'animals': <WordChallenge>[
@@ -349,6 +379,7 @@ class MockLearningSeed {
             emoji: '🦁',
             funFact: 'A lion roar can be heard from far away.',
             pronunciationHint: 'LYE-uhn',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'animal-elephant',
@@ -357,6 +388,7 @@ class MockLearningSeed {
             emoji: '🐘',
             funFact: 'Elephants use their trunks like tools.',
             pronunciationHint: 'EH-luh-funt',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'animal-zebra',
@@ -365,6 +397,7 @@ class MockLearningSeed {
             emoji: '🦓',
             funFact: 'Every zebra has unique stripes.',
             pronunciationHint: 'ZEE-bruh',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-giraffe',
@@ -373,6 +406,7 @@ class MockLearningSeed {
             emoji: '🦒',
             funFact: 'Giraffes are the tallest animals on Earth.',
             pronunciationHint: 'juh-RAF',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-monkey',
@@ -381,6 +415,7 @@ class MockLearningSeed {
             emoji: '🐒',
             funFact: 'Monkeys use their tails to hang from trees.',
             pronunciationHint: 'MUNG-kee',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-dolphin',
@@ -389,6 +424,7 @@ class MockLearningSeed {
             emoji: '🐬',
             funFact: 'Dolphins are one of the smartest animals.',
             pronunciationHint: 'DOL-fin',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-penguin',
@@ -397,6 +433,7 @@ class MockLearningSeed {
             emoji: '🐧',
             funFact: 'Penguins cannot fly but they swim very fast.',
             pronunciationHint: 'PEN-gwin',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-tiger',
@@ -405,6 +442,7 @@ class MockLearningSeed {
             emoji: '🐯',
             funFact: 'Tigers have striped skin under their fur.',
             pronunciationHint: 'TYE-gur',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-rabbit',
@@ -413,6 +451,7 @@ class MockLearningSeed {
             emoji: '🐰',
             funFact: 'Rabbits can hop very fast to escape danger.',
             pronunciationHint: 'RAB-it',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'animal-turtle',
@@ -421,6 +460,7 @@ class MockLearningSeed {
             emoji: '🐢',
             funFact: 'Some turtles can live over 100 years.',
             pronunciationHint: 'TUR-tuhl',
+            difficulty: 2,
           ),
         ],
         'daily': <WordChallenge>[
@@ -431,6 +471,7 @@ class MockLearningSeed {
             emoji: '📘',
             funFact: 'Books carry stories and facts everywhere.',
             pronunciationHint: 'BUUK',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-water',
@@ -439,6 +480,7 @@ class MockLearningSeed {
             emoji: '💧',
             funFact: 'Water keeps the body energized.',
             pronunciationHint: 'WAW-ter',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-sun',
@@ -447,6 +489,7 @@ class MockLearningSeed {
             emoji: '☀️',
             funFact: 'The sun gives Earth light and warmth.',
             pronunciationHint: 'SUN',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-clock',
@@ -455,6 +498,7 @@ class MockLearningSeed {
             emoji: '🕐',
             funFact: 'Clocks help us keep track of time all day.',
             pronunciationHint: 'KLOK',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-phone',
@@ -463,6 +507,7 @@ class MockLearningSeed {
             emoji: '📱',
             funFact: 'Phones let people talk from anywhere in the world.',
             pronunciationHint: 'FOHN',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-chair',
@@ -471,6 +516,7 @@ class MockLearningSeed {
             emoji: '🪑',
             funFact: 'The oldest known chair is over 5000 years old.',
             pronunciationHint: 'CHAIR',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-pencil',
@@ -479,6 +525,7 @@ class MockLearningSeed {
             emoji: '✏️',
             funFact: 'A single pencil can draw a line 35 miles long.',
             pronunciationHint: 'PEN-suhl',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'daily-key',
@@ -487,6 +534,7 @@ class MockLearningSeed {
             emoji: '🔑',
             funFact: 'Keys have been used to lock doors for thousands of years.',
             pronunciationHint: 'KEE',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'daily-umbrella',
@@ -495,6 +543,7 @@ class MockLearningSeed {
             emoji: '☂️',
             funFact: 'Umbrellas were first used to block the sun, not rain.',
             pronunciationHint: 'um-BREH-luh',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'daily-mirror',
@@ -503,6 +552,7 @@ class MockLearningSeed {
             emoji: '🪞',
             funFact: 'Mirrors reflect light to show your image.',
             pronunciationHint: 'MEER-ur',
+            difficulty: 2,
           ),
         ],
         'vehicles': <WordChallenge>[
@@ -513,6 +563,7 @@ class MockLearningSeed {
             emoji: '🚗',
             funFact: 'Cars help people travel long distances.',
             pronunciationHint: 'KAR',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-bus',
@@ -521,6 +572,7 @@ class MockLearningSeed {
             emoji: '🚌',
             funFact: 'Buses carry many people at the same time.',
             pronunciationHint: 'BUS',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-plane',
@@ -529,6 +581,7 @@ class MockLearningSeed {
             emoji: '✈️',
             funFact: 'Planes fly high above the clouds.',
             pronunciationHint: 'PLAYN',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-train',
@@ -537,6 +590,7 @@ class MockLearningSeed {
             emoji: '🚂',
             funFact: 'Trains run on tracks and can be very long.',
             pronunciationHint: 'TRAYN',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-bicycle',
@@ -545,6 +599,7 @@ class MockLearningSeed {
             emoji: '🚲',
             funFact: 'Bicycles have two wheels and are powered by pedaling.',
             pronunciationHint: 'BY-sih-kuhl',
+            difficulty: 2,
           ),
           WordChallenge(
             id: 'vehicle-helicopter',
@@ -553,6 +608,7 @@ class MockLearningSeed {
             emoji: '🚁',
             funFact: 'Helicopters can fly straight up and hover in the air.',
             pronunciationHint: 'HEH-lih-kop-tur',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'vehicle-boat',
@@ -561,6 +617,7 @@ class MockLearningSeed {
             emoji: '⛵',
             funFact: 'Boats have been used for travel for thousands of years.',
             pronunciationHint: 'BOHT',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-motorcycle',
@@ -569,6 +626,7 @@ class MockLearningSeed {
             emoji: '🏍️',
             funFact: 'Motorcycles have two wheels and a powerful engine.',
             pronunciationHint: 'MOH-tur-sy-kuhl',
+            difficulty: 3,
           ),
           WordChallenge(
             id: 'vehicle-truck',
@@ -577,6 +635,7 @@ class MockLearningSeed {
             emoji: '🚛',
             funFact: 'Trucks deliver food and goods to stores everywhere.',
             pronunciationHint: 'TRUK',
+            difficulty: 1,
           ),
           WordChallenge(
             id: 'vehicle-rocket',
@@ -585,6 +644,7 @@ class MockLearningSeed {
             emoji: '🚀',
             funFact: 'Rockets travel fast enough to leave Earth and go to space.',
             pronunciationHint: 'ROK-it',
+            difficulty: 2,
           ),
         ],
       };

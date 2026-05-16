@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../learning/domain/learning_models.dart';
+
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -11,6 +13,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final _controller = PageController();
   int _index = 0;
+  ExperienceLevel _selectedLevel = ExperienceLevel.beginner;
 
   @override
   void dispose() {
@@ -19,9 +22,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finish() async {
-    if (mounted) {
-      context.go('/auth');
-    }
+    if (!mounted) return;
+    // Save the selected level for when the user signs in/continues as guest.
+    // The SessionCubit will apply it once a user is created.
+    _OnboardingLevelHolder.selectedLevel = _selectedLevel;
+    context.go('/auth');
   }
 
   @override
@@ -56,6 +61,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ],
       ),
+      _OnboardingSlide(
+        title: 'Choose your level',
+        subtitle: 'We will adapt the difficulty for you.',
+        icon: Icons.psychology_rounded,
+        iconColor: Color(0xFF80ED99),
+        isLevelPicker: true,
+      ),
     ];
 
     return Scaffold(
@@ -80,6 +92,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     },
                     itemBuilder: (BuildContext context, int index) {
                       final slide = slides[index];
+                      if (slide.isLevelPicker) {
+                        return _LevelPickerSlide(
+                          slide: slide,
+                          selectedLevel: _selectedLevel,
+                          onLevelChanged: (ExperienceLevel level) {
+                            setState(() => _selectedLevel = level);
+                          },
+                        );
+                      }
                       if (slide.features.isEmpty) {
                         return _IntroSlide(slide: slide);
                       }
@@ -144,6 +165,7 @@ class _OnboardingSlide {
     required this.icon,
     required this.iconColor,
     this.features = const <_OnboardingFeature>[],
+    this.isLevelPicker = false,
   });
 
   final String title;
@@ -151,6 +173,7 @@ class _OnboardingSlide {
   final IconData icon;
   final Color iconColor;
   final List<_OnboardingFeature> features;
+  final bool isLevelPicker;
 }
 
 class _OnboardingFeature {
@@ -271,3 +294,160 @@ class _FeatureSlide extends StatelessWidget {
     );
   }
 }
+
+class _LevelPickerSlide extends StatelessWidget {
+  const _LevelPickerSlide({
+    required this.slide,
+    required this.selectedLevel,
+    required this.onLevelChanged,
+  });
+
+  final _OnboardingSlide slide;
+  final ExperienceLevel selectedLevel;
+  final ValueChanged<ExperienceLevel> onLevelChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            slide.title,
+            style: Theme.of(context).textTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            slide.subtitle,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: const Color(0xFF6B6B6B)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ...ExperienceLevel.values.map(
+            (ExperienceLevel level) {
+              final isSelected = level == selectedLevel;
+              final colors =
+                  level.gradientHex.map((int hex) => Color(hex)).toList();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: GestureDetector(
+                  onTap: () => onLevelChanged(level),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut,
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected ? colors[0] : Colors.transparent,
+                        width: 2.5,
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: isSelected
+                              ? colors[0].withValues(alpha: 0.2)
+                              : const Color(0x11000000),
+                          blurRadius: isSelected ? 20 : 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                                ? LinearGradient(colors: colors)
+                                : null,
+                            color: isSelected
+                                ? null
+                                : colors[0].withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            level.emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                level.title,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${level.roundSeconds}s timer · '
+                                '${level.startingLives} lives · '
+                                '${level.xpMultiplier}x XP',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(colors: colors),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Holds the level chosen during onboarding so it can be applied after auth.
+class OnboardingLevelHolder {
+  OnboardingLevelHolder._();
+  static ExperienceLevel? selectedLevel;
+}
+
+// Alias for internal use.
+typedef _OnboardingLevelHolder = OnboardingLevelHolder;
