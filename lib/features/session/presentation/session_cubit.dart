@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/notifications/firebase_notification_service.dart';
 import '../data/session_repository_impl.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_user.dart';
@@ -63,9 +65,13 @@ class SessionState {
 class SessionCubit extends Cubit<SessionState> {
   SessionCubit({
     required SessionRepository sessionRepository,
+    required FirebaseFirestore? firestore,
+    required FirebaseNotificationService notificationService,
     required bool backendConfigured,
     required String? bootstrapWarning,
   }) : _sessionRepository = sessionRepository,
+       _firestore = firestore,
+       _notificationService = notificationService,
        super(
          SessionState.initial(
            backendConfigured: backendConfigured,
@@ -74,6 +80,8 @@ class SessionCubit extends Cubit<SessionState> {
        );
 
   final SessionRepository _sessionRepository;
+  final FirebaseFirestore? _firestore;
+  final FirebaseNotificationService _notificationService;
 
   Future<void> restoreSession() async {
     try {
@@ -89,6 +97,7 @@ class SessionCubit extends Cubit<SessionState> {
         return;
       }
 
+      await _syncNotificationToken(user);
       emit(
         state.copyWith(
           status: user.isGuest
@@ -165,6 +174,7 @@ class SessionCubit extends Cubit<SessionState> {
         email: email,
         password: password,
       );
+      await _syncNotificationToken(user);
       emit(
         state.copyWith(
           status: SessionStatus.authenticated,
@@ -203,6 +213,7 @@ class SessionCubit extends Cubit<SessionState> {
 
     try {
       final user = await _sessionRepository.signInWithGoogle();
+      await _syncNotificationToken(user);
       emit(
         state.copyWith(
           status: SessionStatus.authenticated,
@@ -249,6 +260,7 @@ class SessionCubit extends Cubit<SessionState> {
       );
 
       if (result.user != null) {
+        await _syncNotificationToken(result.user!);
         emit(
           state.copyWith(
             status: SessionStatus.authenticated,
@@ -287,6 +299,7 @@ class SessionCubit extends Cubit<SessionState> {
   }
 
   Future<void> signOut() async {
+    await _clearNotificationToken(state.user);
     await _sessionRepository.signOut();
     emit(
       state.copyWith(
@@ -307,5 +320,33 @@ class SessionCubit extends Cubit<SessionState> {
             : SessionStatus.authenticated,
       ),
     );
+  }
+
+  Future<void> _syncNotificationToken(SessionUser user) async {
+    final firestore = _firestore;
+    if (firestore == null || user.isGuest) return;
+
+    try {
+      await _notificationService.syncTokenForUser(
+        firestore: firestore,
+        userId: user.id,
+      );
+    } catch (_) {
+      // Notification token sync should never block authentication.
+    }
+  }
+
+  Future<void> _clearNotificationToken(SessionUser? user) async {
+    final firestore = _firestore;
+    if (firestore == null || user == null || user.isGuest) return;
+
+    try {
+      await _notificationService.clearTokenForUser(
+        firestore: firestore,
+        userId: user.id,
+      );
+    } catch (_) {
+      // Sign-out must still complete if token cleanup fails.
+    }
   }
 }

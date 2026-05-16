@@ -7,6 +7,7 @@ import '../../features/learning/domain/learning_repository.dart';
 import '../../features/session/data/session_repository_impl.dart';
 import '../../features/session/domain/session_repository.dart';
 import '../config/app_config.dart';
+import '../notifications/firebase_notification_service.dart';
 import '../voice/speech_recognition_service.dart';
 
 class AppBootstrapServices {
@@ -14,6 +15,7 @@ class AppBootstrapServices {
     required this.config,
     required this.sessionRepository,
     required this.learningRepository,
+    required this.notificationService,
     required this.speechRecognitionService,
     this.firebaseApp,
     this.firebaseAuth,
@@ -27,12 +29,16 @@ class AppBootstrapServices {
   final FirebaseFirestore? firestore;
   final SessionRepository sessionRepository;
   final LearningRepository learningRepository;
+  final FirebaseNotificationService notificationService;
   final SpeechRecognitionService speechRecognitionService;
   final String? bootstrapWarning;
 }
 
 class AppBootstrap {
-  static Future<AppBootstrapServices> initialize(AppConfig config) async {
+  static Future<AppBootstrapServices> initialize(
+    AppConfig config, {
+    bool enableNotifications = true,
+  }) async {
     FirebaseApp? firebaseApp;
     FirebaseAuth? firebaseAuth;
     FirebaseFirestore? firestore;
@@ -58,6 +64,11 @@ class AppBootstrap {
           'Add the FIREBASE_* dart-defines for ${config.firebasePlatformLabel} to enable the live backend.';
     }
 
+    final notificationService = FirebaseNotificationService();
+    if (firebaseApp != null && enableNotifications) {
+      await notificationService.initialize();
+    }
+
     final sessionRepository = SessionRepositoryImpl(
       firebaseAuth: firebaseAuth,
       firestore: firestore,
@@ -73,6 +84,7 @@ class AppBootstrap {
       firestore: firestore,
       sessionRepository: sessionRepository,
       learningRepository: learningRepository,
+      notificationService: notificationService,
       speechRecognitionService: SpeechRecognitionServiceImpl(),
       bootstrapWarning: bootstrapWarning,
     );

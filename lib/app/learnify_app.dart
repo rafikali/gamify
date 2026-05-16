@@ -27,6 +27,8 @@ class _LearnifyAppState extends State<LearnifyApp> {
     super.initState();
     _sessionCubit = SessionCubit(
       sessionRepository: widget.services.sessionRepository,
+      firestore: widget.services.firestore,
+      notificationService: widget.services.notificationService,
       backendConfigured: widget.services.config.isFirebaseConfigured,
       bootstrapWarning: widget.services.bootstrapWarning,
     )..restoreSession();
@@ -37,6 +39,7 @@ class _LearnifyAppState extends State<LearnifyApp> {
   void dispose() {
     _router.dispose();
     _sessionCubit.close();
+    widget.services.notificationService.dispose();
     widget.services.speechRecognitionService.dispose();
     super.dispose();
   }

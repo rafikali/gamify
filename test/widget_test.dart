@@ -9,12 +9,21 @@ void main() {
   testWidgets('Learnify starts on the splash screen', (
     WidgetTester tester,
   ) async {
-    final services = await AppBootstrap.initialize(AppConfig.fromEnvironment());
+    final services = await AppBootstrap.initialize(
+      const AppConfig(
+        firebaseOptions: null,
+        googleWebClientId: '',
+        googleIosClientId: '',
+      ),
+      enableNotifications: false,
+    );
 
     await tester.pumpWidget(LearnifyApp(services: services));
     await tester.pump();
 
     expect(find.text('Word Rocket'), findsOneWidget);
     expect(find.byIcon(Icons.rocket_launch_rounded), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1500));
   });
 }
